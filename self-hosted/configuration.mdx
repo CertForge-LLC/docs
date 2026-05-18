@@ -1,0 +1,235 @@
+---
+title: "Configuration Reference"
+description: "Complete config.yaml reference for CertForge Self-Hosted."
+---
+
+CertForge is configured via a single YAML file, typically `/etc/certforge/config.yaml`. Pass it at startup with `--config /path/to/config.yaml`.
+
+## Full example
+
+```yaml
+mode: self-hosted
+
+server:
+  listen_address: 0.0.0.0
+  dashboard_port: 8080
+  port: 8443
+  dashboard_enabled: true
+  read_timeout: 30s
+  write_timeout: 30s
+  acme_base_url: https://certforge.internal:8443
+  allowed_cidrs:
+    - 10.0.0.0/8
+    - 192.168.0.0/16
+
+storage:
+  base_path: /opt/certforge/data
+
+database:
+  url: postgres://certforge:password@db.internal:5432/certforge?sslmode=require
+
+license:
+  public_key: ""  # Leave empty — key is bundled in the binary
+
+server_tls:
+  ca_id: internal-ca
+  domains:
+    - certforge.internal
+    - 10.0.1.5
+  renew_before: 72h
+  public_domains:
+    - certforge.example.com
+  acme_ca_id: letsencrypt
+
+acme:
+  mode: production   # "production" | "staging"
+  providers:
+    letsencrypt:
+      directory_url: https://acme-v02.api.letsencrypt.org/directory
+    zerossl:
+      directory_url: https://acme.zerossl.com/v2/DV90
+
+dns:
+  solver: rfc2136   # "rfc2136" | "manual"
+  rfc2136:
+    server: 10.0.0.1:53
+    zone: internal.example.com.
+    tsig_key: certforge-key
+    tsig_secret: base64secret==
+    tsig_alg: hmac-sha256
+    ttl: 120
+
+call_home:
+  interval: 24h
+  timeout: 30s
+  # proxy: http://proxy.internal:3128
+  # proxy_username: user
+  # proxy_password: secret
+```
+
+---
+
+## Fields
+
+### `mode`
+
+```yaml
+mode: self-hosted
+```
+
+| Value | Description |
+|-------|-------------|
+| `self-hosted` | Single-organization, file or PostgreSQL backed |
+| `cloud` | Multi-organization platform mode (requires PostgreSQL and `platform_domain`) |
+
+---
+
+### `server`
+
+```yaml
+server:
+  listen_address: 0.0.0.0
+  dashboard_port: 8080
+  port: 8443
+  dashboard_enabled: true
+  read_timeout: 30s
+  write_timeout: 30s
+  acme_base_url: https://certforge.internal:8443
+  allowed_cidrs:
+    - 10.0.0.0/8
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `listen_address` | `0.0.0.0` | IP address to bind. Use `127.0.0.1` to listen only on loopback. |
+| `dashboard_port` | `8080` | Dashboard and HTTP API port. |
+| `port` | `8443` | mTLS ACME enrollment port. |
+| `dashboard_enabled` | `true` | Set to `false` to run API-only without the web dashboard. |
+| `read_timeout` | `30s` | HTTP read timeout. Increase for slow clients. |
+| `write_timeout` | `30s` | HTTP write timeout. |
+| `acme_base_url` | auto | Advertised ACME directory URL returned to clients. Defaults to `http://localhost:{port}`. |
+| `allowed_cidrs` | `[]` (all) | If set, dashboard requests from IPs outside these ranges are rejected with 403. |
+
+---
+
+### `storage`
+
+```yaml
+storage:
+  base_path: /opt/certforge/data
+```
+
+All runtime data lives under `base_path`:
+
+```
+data/
+  license.jwt          ← your license file (place here before starting)
+  alert_state.json
+  audit.log
+  settings/
+  certs/               ← issued certificate JSON + PEM files
+  ca/                  ← internal CA keys and certificates
+  acme-server/         ← ACME server state (accounts, orders, nonces)
+```
+
+The `certforge` user must have read/write access to this directory.
+
+---
+
+### `database`
+
+```yaml
+database:
+  url: postgres://user:password@host:5432/dbname?sslmode=require
+```
+
+Optional. When omitted, all data is file-based. Required for multi-organization (cloud) mode or HA deployments.
+
+The connection string follows the standard PostgreSQL libpq format. For `sslmode`, use `require` or `verify-full` in production.
+
+---
+
+### `license`
+
+```yaml
+license:
+  public_key: ""
+```
+
+Leave `public_key` empty. The license signing key is bundled in the binary. The `license.jwt` file must be present in `storage.base_path` on startup.
+
+---
+
+### `server_tls`
+
+```yaml
+server_tls:
+  ca_id: internal-ca           # Internal CA to issue the dashboard cert
+  domains:
+    - certforge.internal       # Hostname(s) and IPs in the cert's SAN
+    - 10.0.1.5
+  renew_before: 72h            # Renew when less than this time remains
+  public_domains:
+    - certforge.example.com    # Public FQDNs — ACME-validated
+  acme_ca_id: letsencrypt      # ACME CA for public_domains
+```
+
+Omit this block entirely to run the dashboard over plain HTTP (useful behind a TLS-terminating reverse proxy).
+
+---
+
+### `acme`
+
+```yaml
+acme:
+  mode: production
+  providers:
+    letsencrypt:
+      directory_url: https://acme-v02.api.letsencrypt.org/directory
+```
+
+| Field | Description |
+|-------|-------------|
+| `mode` | `production` or `staging`. Use `staging` for testing to avoid rate limits. |
+| `providers` | Named map of ACME directory URLs. Reference by `acme_ca_id` in domain trust profiles. |
+
+---
+
+### `dns`
+
+```yaml
+dns:
+  solver: rfc2136
+  rfc2136:
+    server: 10.0.0.1:53
+    zone: internal.example.com.
+    tsig_key: certforge-key
+    tsig_secret: base64secret==
+    tsig_alg: hmac-sha256
+    ttl: 120
+```
+
+DNS solver used for DNS-01 ACME challenges. Set `solver: manual` to disable automatic DNS updates (a human or external automation must place the challenge record).
+
+---
+
+### `call_home`
+
+```yaml
+call_home:
+  interval: 24h
+  timeout: 30s
+  proxy: http://proxy.internal:3128
+  proxy_username: user
+  proxy_password: secret
+```
+
+Controls how CertForge contacts `certforge.xyz` for license validation and version checks. See [Call Home Settings](/self-hosted/call-home) for full details.
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `interval` | `24h` | How often to check in. Minimum `1h`. |
+| `timeout` | `30s` | Per-request timeout. |
+| `proxy` | — | HTTP(S) proxy URL for outbound calls. Supports `http://`, `https://`, and `socks5://`. |
+| `proxy_username` | — | Proxy authentication username (Basic auth). |
+| `proxy_password` | — | Proxy authentication password. |

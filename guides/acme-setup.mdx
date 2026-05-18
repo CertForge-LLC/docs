@@ -1,0 +1,124 @@
+---
+title: "ACME Setup"
+description: "Connect CertForge to Let's Encrypt or ZeroSSL for publicly-trusted certificates."
+---
+
+CertForge acts as an ACME client on your behalf. Configure an ACME provider once, then any device or Domain Trust Profile can request publicly-trusted certificates through CertForge's approval and policy layer.
+
+## Add an ACME CA
+
+1. Go to **Admin → Certificate Authorities → New**
+2. Select type **ACME**
+3. Fill in:
+
+| Field | Let's Encrypt | ZeroSSL |
+|---|---|---|
+| Name | `Let's Encrypt` | `ZeroSSL` |
+| Directory URL | `https://acme-v02.api.letsencrypt.org/directory` | `https://acme.zerossl.com/v2/DV90` |
+| Contact email | Your ops email | Your ops email |
+
+4. Save — CertForge registers an ACME account with the provider automatically.
+
+<Note>
+Use Let's Encrypt's staging environment (`https://acme-staging-v02.api.letsencrypt.org/directory`) while testing to avoid rate limits. Switch to production before going live.
+</Note>
+
+## Configure DNS validation
+
+ACME requires proving you control the domain. CertForge uses **DNS-01 challenge solving**, which works for wildcard certs and doesn't require an open HTTP port.
+
+### Cloudflare
+
+In `config.yaml`:
+
+```yaml
+dns:
+  solver: cloudflare
+  cloudflare:
+    api_token: YOUR_API_TOKEN
+```
+
+Create a Cloudflare API token with `Zone:DNS:Edit` permission scoped to your zone(s). Set the token via environment variable:
+
+```bash
+export CLOUDFLARE_API_TOKEN=your-token
+```
+
+### Route 53 (AWS)
+
+```yaml
+dns:
+  solver: route53
+  route53:
+    region: us-east-1
+    hosted_zone_id: Z1234567890
+```
+
+Attach this IAM policy to your CertForge instance role or user:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets", "route53:ListResourceRecordSets"],
+      "Resource": "arn:aws:route53:::hostedzone/Z1234567890"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "route53:GetChange",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### Manual (any DNS provider)
+
+```yaml
+dns:
+  solver: manual
+```
+
+When a certificate is requested, CertForge displays the required TXT record. You (or your automation) add the record, then confirm in the dashboard. The ACME challenge is submitted once confirmed.
+
+## Create a Domain Trust Profile for ACME
+
+1. Go to **Admin → Domain Trust Profiles → New**
+2. Set:
+   - Domains: `*.corp.com` (or your public domain)
+   - CA: select the ACME CA you created
+   - Require approval: recommended for production domains
+3. Save
+
+## Test an issuance
+
+Using certbot pointed at your CertForge dashboard:
+
+```bash
+certbot certonly \
+  --server https://certforge.corp.com/acme/directory \
+  --manual \
+  --preferred-challenges dns \
+  -d test.corp.com
+```
+
+Or acme.sh:
+
+```bash
+acme.sh --issue \
+  --server https://certforge.corp.com/acme/directory \
+  -d test.corp.com \
+  --dns dns_cf
+```
+
+## Let's Encrypt rate limits
+
+| Limit | Value |
+|---|---|
+| Certificates per registered domain per week | 50 |
+| Duplicate certificates per week | 5 |
+| New orders per account per 3 hours | 300 |
+
+CertForge tracks issuances and prevents requests that would exceed rate limits. Use the staging environment while testing.

@@ -1,0 +1,96 @@
+---
+title: "Approval Workflow"
+description: "Configure and manage the certificate approval process."
+---
+
+The approval workflow is CertForge's governance layer. When enabled on a Domain Trust Profile, every certificate request is queued for human review before any certificate is issued.
+
+## Enable approval on a DTP
+
+1. Go to **Admin → Domain Trust Profiles**
+2. Edit the profile
+3. Toggle **Require approval** on
+4. Save
+
+From this point, all new certificate requests under this profile enter a pending queue.
+
+## The approval queue
+
+**Approvals** in the navigation shows all pending, approved, and rejected requests.
+
+Each request shows:
+
+| Field | Description |
+|---|---|
+| Requested by | Username / email of the requester |
+| Domains | The certificate's SANs |
+| Trust Profile | Which DTP matched |
+| Environment | Production, staging, dev |
+| Justification | Text the requester provided |
+| Requested at | Timestamp |
+
+## Taking action
+
+Click **Approve** to issue the certificate, or **Reject** to decline. When rejecting, provide a reason — it is shown to the requester and recorded permanently in the audit trail.
+
+The requester is notified by email if SMTP is configured.
+
+## Who can approve
+
+| Role | Can approve |
+|---|---|
+| Org admin | All requests in the org |
+| Org operator | Requests for DTPs where they have `admin`-level DTP permission |
+| Platform admin | Requests in any org (when active org context is set) |
+
+## Justification requirement
+
+When submitting a request that requires approval, the requester must enter a **justification** — a plain-text explanation of why the certificate is needed. This is mandatory, stored permanently in the audit trail, and visible to approvers.
+
+## Audit chain
+
+Every approval action (submit, approve, reject, void) is written to an append-only hash-chained ledger. The chain is verified on every startup. Tampering with any past record breaks the chain and prevents CertForge from starting — making the approval history tamper-evident.
+
+## Email notifications
+
+If SMTP is configured:
+
+- **On submission:** Approvers receive an email with the request details and a direct link to approve or reject
+- **On approve / reject:** The requester receives the outcome and reason
+- **Escalation:** If a request stays pending past the escalation threshold, approvers are reminded
+
+Configure SMTP in **Admin → Settings → Notifications**. See [Email Setup →](/guides/email-setup).
+
+## Void
+
+An admin can **Void** a pending request — this closes it without issuing a certificate. Use void when a request was submitted in error or is no longer needed. Voiding is logged with actor and reason.
+
+## Bulk approval
+
+Multiple pending requests can be approved or rejected at once from **Approvals → Select All → Approve Selected**.
+
+## Automated submission via API
+
+Systems can submit approval requests programmatically via the mTLS enrollment API:
+
+```bash
+curl -X POST https://certforge.corp.com:8443/v1/enroll \
+  --cert /etc/ssl/device.crt \
+  --key /etc/ssl/device.key \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domains": ["api.internal.corp.com"],
+    "environment": "production",
+    "justification": "New service — ticket #1234"
+  }'
+```
+
+Response:
+```json
+{
+  "status": "pending",
+  "approval_id": "apr_abc123"
+}
+```
+
+Poll the status or rely on the email notification. The certificate is available for download once approved.

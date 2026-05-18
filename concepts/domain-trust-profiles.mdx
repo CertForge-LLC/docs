@@ -1,0 +1,122 @@
+---
+title: "Domain Trust Profiles"
+description: "The core policy object in CertForge — defines which domains get certs, from which CA, and whether approval is required."
+---
+
+# Domain Trust Profiles
+
+A **Domain Trust Profile (DTP)** is the core policy object in CertForge. It defines the rules that govern certificate issuance for a set of domains: which Certificate Authority to use, whether human approval is required, who is allowed to request certificates, and which environments are permitted.
+
+Every certificate request is matched against a DTP before anything is issued.
+
+## What a DTP controls
+
+| Setting | Description |
+|---|---|
+| **Domains** | Wildcard or exact domains this profile covers (e.g. `*.internal.example.com`) |
+| **Certificate Authority** | Which CA signs certificates issued under this profile |
+| **Require approval** | If enabled, all requests enter the approval queue instead of being issued immediately |
+| **Allowed environments** | Optional constraint — e.g. only allow `production` or `staging` requests |
+| **Allowed requesters** | Restrict which devices or users can request under this profile |
+| **Certificate validity** | Override the default certificate lifetime |
+| **Key type** | RSA or ECDSA, and key size |
+
+## Domain matching
+
+Domains in a DTP support wildcard prefixes:
+
+| DTP domain | Matches | Does not match |
+|---|---|---|
+| `*.internal.example.com` | `api.internal.example.com` | `internal.example.com` |
+| `internal.example.com` | `internal.example.com` (exact) | `api.internal.example.com` |
+| `*.example.com` | `anything.example.com` | `deep.nested.example.com` |
+
+A request must match exactly one DTP. If a request's domains span multiple DTPs, it is rejected.
+
+## Approval workflow
+
+When **Require approval** is enabled on a DTP, the flow is:
+
+```
+Request received
+      │
+      ▼
+DTP matched → approval required?
+      │
+      ├─ No  → Certificate issued immediately
+      │
+      └─ Yes → Request enters approval queue
+                        │
+              ┌─────────┴──────────┐
+              │                    │
+          Approved              Rejected
+              │                    │
+      Certificate issued     Request closed
+      Requester notified     Reason recorded
+```
+
+Approvers are any users with the `admin` or `operator` role in the organization, or any user explicitly granted access to the DTP.
+
+## DTP permissions
+
+You can grant individual users access to a DTP with a specific role:
+
+| DTP role | Can request | Can approve | Can manage DTP |
+|---|---|---|---|
+| `viewer` | No | No | No |
+| `operator` | Yes | No | No |
+| `admin` | Yes | Yes | Yes |
+
+DTP-level permissions are additive on top of org-level roles.
+
+## Creating a DTP
+
+**Dashboard:** Admin → Domain Trust Profiles → New
+
+**Required fields:**
+- Name
+- At least one domain pattern
+- Certificate Authority
+
+**Optional:**
+- Approval required (recommended for production domains)
+- Environment restrictions
+- Per-user DTP role grants
+
+## Example configurations
+
+### Internal services — no approval
+
+Suitable for automated internal services that renew frequently.
+
+```
+Name: internal-api
+Domains: *.api.internal.corp.com
+CA: internal-root-ca
+Require approval: No
+```
+
+### Customer-facing — approval required
+
+Suitable for any domain that will be publicly trusted.
+
+```
+Name: public-services
+Domains: *.corp.com
+CA: letsencrypt-acme
+Require approval: Yes
+```
+
+### IoT devices — restricted environment
+
+```
+Name: iot-devices
+Domains: *.devices.corp.com
+CA: internal-device-ca
+Require approval: Yes
+Allowed environments: production
+```
+
+## Pending changes
+
+Changes to an existing DTP (editing domains, switching CAs, toggling approval) create a **pending change** that also requires approval from an org admin before taking effect. This prevents accidental policy changes from immediately affecting running systems.

@@ -1,0 +1,120 @@
+---
+title: "DNS Validation"
+description: "How CertForge solves ACME DNS-01 challenges automatically."
+---
+
+ACME's DNS-01 challenge requires placing a TXT record at `_acme-challenge.yourdomain.com` to prove domain ownership. CertForge handles this automatically for supported DNS providers — no manual steps required.
+
+## Why DNS-01?
+
+| Feature | HTTP-01 | DNS-01 |
+|---|---|---|
+| Wildcard certificates | ❌ | ✅ |
+| Works without open HTTP port | ❌ | ✅ |
+| Works for internal domains | ❌ | ✅ |
+| Fully automated | ✅ | ✅ (with supported provider) |
+
+CertForge uses DNS-01 exclusively. HTTP-01 is not supported.
+
+## Cloudflare
+
+### Create an API token
+
+1. In Cloudflare → Profile → API Tokens → Create Token
+2. Use the **Edit zone DNS** template
+3. Restrict to the zone(s) CertForge needs to manage
+4. Copy the token
+
+### Configure
+
+```yaml
+dns:
+  solver: cloudflare
+  cloudflare:
+    api_token: ${CLOUDFLARE_API_TOKEN}
+```
+
+Set the token as an environment variable — never in the YAML file:
+
+```bash
+# systemd drop-in
+Environment="CLOUDFLARE_API_TOKEN=your-token"
+```
+
+## AWS Route 53
+
+### IAM policy
+
+Create an IAM policy with these permissions:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets"
+      ],
+      "Resource": "arn:aws:route53:::hostedzone/YOUR_ZONE_ID"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "route53:GetChange",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+Attach to the IAM role or user CertForge runs as.
+
+### Configure
+
+```yaml
+dns:
+  solver: route53
+  route53:
+    region: us-east-1
+    hosted_zone_id: YOUR_HOSTED_ZONE_ID
+```
+
+If running on EC2 with an instance role, no credentials are needed — the SDK picks them up automatically.
+
+## Manual (any DNS provider)
+
+Use `manual` when your DNS provider isn't natively supported:
+
+```yaml
+dns:
+  solver: manual
+```
+
+When CertForge needs to validate a domain, it logs the required TXT record:
+
+```
+[acme] DNS-01 challenge: add TXT record
+  Name:  _acme-challenge.myservice.corp.com
+  Value: abc123xyz...
+  TTL:   120
+```
+
+Add the record in your DNS provider's control panel, then confirm in the CertForge dashboard (Approvals → [request] → Confirm DNS). CertForge submits the challenge to the ACME CA.
+
+<Note>
+Manual mode works well when combined with the approval workflow — the approver can both review the request and place the DNS record before approving.
+</Note>
+
+## Propagation wait
+
+CertForge waits for the DNS record to propagate before submitting the ACME challenge. The default wait is 60 seconds after the record is placed. If your DNS provider has slow propagation, increase this in `config.yaml`:
+
+```yaml
+dns:
+  propagation_timeout: 120s  # default: 60s
+```
+
+## Multiple DNS providers
+
+If you use different providers for different zones, configure multiple DNS accounts in **Admin → DNS Accounts**. Each domain trust profile can reference a specific DNS account for challenge solving.

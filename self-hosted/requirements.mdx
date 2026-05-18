@@ -1,0 +1,159 @@
+---
+title: "System Requirements"
+description: "Everything you need before installing CertForge Self-Hosted."
+---
+
+## Quick-reference cheat sheet
+
+| Category | Minimum | Recommended |
+|----------|---------|-------------|
+| **CPU** | 1 vCPU | 2 vCPU |
+| **RAM** | 256 MB | 512 MB |
+| **Disk** | 500 MB | 2 GB |
+| **OS** | Linux 64-bit | Ubuntu 22.04 LTS / Debian 12 |
+| **Database** | None (file-based) | PostgreSQL 14+ |
+| **Internet** | Outbound HTTPS | — |
+| **License** | Trial or paid | — |
+
+CertForge ships as a **single static binary** with no runtime dependencies. If you can copy a file and open a port, you can run it.
+
+---
+
+## Operating system
+
+CertForge is tested on:
+
+| Distribution | Versions |
+|--------------|----------|
+| Ubuntu | 22.04 LTS, 24.04 LTS |
+| Debian | 11, 12 |
+| RHEL / Rocky / AlmaLinux | 8, 9 |
+| Alpine Linux | 3.18+ |
+| macOS | 13 (Ventura)+ |
+| Windows Server | 2019, 2022 |
+
+Architectures supported: `amd64` (x86-64) and `arm64` (Apple Silicon, AWS Graviton).
+
+---
+
+## Hardware
+
+### CPU
+1 vCPU is sufficient for low-volume issuance (< 100 certs/day). At high volume or with many concurrent ACME clients, 2+ vCPUs prevent request queuing.
+
+### Memory
+| Scenario | RAM needed |
+|----------|------------|
+| File-based mode (no DB) | 256 MB |
+| PostgreSQL connected | 512 MB |
+| High concurrency (> 50 ACME clients) | 1 GB |
+
+### Disk
+
+The binary is approximately 30 MB. All runtime data lives in the **data directory** (default: `./data`).
+
+| Content | Size estimate |
+|---------|--------------|
+| Binary | ~30 MB |
+| Config file | < 1 KB |
+| Per certificate (JSON + PEM) | ~8 KB |
+| Audit log (per event) | ~1 KB |
+| Alert state file | < 1 KB |
+
+**Planning guide**: 500 MB covers the binary plus ~58,000 certificate records. For most organizations, 2 GB is ample headroom for years of issuance history and log retention.
+
+<Note>
+CertForge does **not** store private keys by default when issuing via ACME. The 8 KB per-certificate estimate covers only the metadata JSON and the public certificate chain. If you enable key storage or use the internal CA (which stores issued certs and keys), plan for ~12 KB per certificate.
+</Note>
+
+---
+
+## Network
+
+### Inbound ports
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 8080 | HTTP | Dashboard (configurable) |
+| 8443 | TLS/mTLS | ACME enrollment API (configurable) |
+| 80 | HTTP | ACME HTTP-01 challenge responder (optional) |
+| 443 | HTTPS | Dashboard with TLS termination (optional) |
+
+All ports are configurable in `config.yaml`. You do **not** need ports 80/443 open if you use DNS-01 validation or an internal CA only.
+
+### Outbound connections
+
+| Destination | Port | Purpose | Required? |
+|-------------|------|---------|-----------|
+| `certforge.xyz` | 443 | License validation (checked every 24 h) | Yes |
+| Your ACME CA (e.g. Let's Encrypt, ZeroSSL) | 443 | Certificate issuance | Only if using ACME |
+| Your DNS provider API | 443 | DNS-01 challenge automation | Only if using DNS-01 |
+| Your SMTP server | 25/465/587 | Email notifications and alerts | Only if notifications enabled |
+
+<Warning>
+License validation requires outbound HTTPS to `certforge.xyz`. If your environment is air-gapped, contact support for an offline license validation option.
+</Warning>
+
+### Firewall rules (example — ufw)
+
+```bash
+# Dashboard
+ufw allow 8080/tcp
+
+# mTLS ACME API (restrict to your internal network)
+ufw allow from 10.0.0.0/8 to any port 8443 proto tcp
+
+# ACME HTTP-01 responder (only if using HTTP-01 validation)
+ufw allow 80/tcp
+```
+
+---
+
+## Database
+
+CertForge defaults to **file-based storage** — no database required. Settings, users, certificates, and audit logs are stored as JSON files in the data directory.
+
+PostgreSQL is required only when:
+- You need **multi-organization** (cloud/SaaS) mode
+- You want **shared state** across multiple instances (HA/load-balanced deployments)
+- You need **database-level backup and recovery** for your compliance posture
+
+| Feature | File-based | PostgreSQL |
+|---------|------------|------------|
+| Single-org usage | ✅ | ✅ |
+| Multi-org (platform mode) | ❌ | ✅ |
+| Restart-safe sessions | ✅ | ✅ |
+| HA / load balancing | ❌ | ✅ |
+| Point-in-time recovery | Manual file backup | Native pg_dump |
+
+### PostgreSQL requirements (if used)
+
+- Version: **14 or later**
+- Extensions: none required
+- Permissions: `CREATE TABLE`, `CREATE INDEX` on the target database
+- Minimum connection pool: 5 connections
+
+---
+
+## License
+
+A valid `license.jwt` file is required. Place it in your data directory before starting the server.
+
+- **Trial**: 30-day trial license available at [certforge.xyz/download](https://certforge.xyz/download)
+- **Starter / Pro / Enterprise**: Purchased licenses from [certforge.xyz](https://certforge.xyz)
+
+The license file is a signed JWT. CertForge validates the signature locally on startup and phones home to `certforge.xyz` every 24 hours to check for tier changes or renewals. The binary will continue to operate during a network outage — the grace period is configurable (default: 14 days).
+
+---
+
+## TLS for the dashboard
+
+The dashboard can run in three modes:
+
+| Mode | Config | Use case |
+|------|--------|---------|
+| Plain HTTP | No TLS config | Development / behind a reverse proxy |
+| Internal CA TLS | `server_tls.ca_id` | Intranet with internal CA |
+| ACME TLS | `server_tls.acme_ca_id` + `public_domains` | Internet-facing with Let's Encrypt/ZeroSSL |
+
+For production, put CertForge behind nginx or Caddy if you want Let's Encrypt for the dashboard without exposing port 80.

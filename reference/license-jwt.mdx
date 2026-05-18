@@ -1,0 +1,71 @@
+---
+title: "License JWT"
+description: "Technical reference for the CertForge license file format."
+---
+
+The CertForge license is a signed JSON Web Token (JWT) stored as `license.jwt`. It is verified cryptographically on every startup — the signature cannot be forged or modified.
+
+## Verification
+
+On startup, CertForge:
+
+1. Reads `license.jwt` from `storage.base_path`
+2. Verifies the RS256 signature using the CertForge public key embedded in the binary
+3. Reads the `exp` claim (expiry timestamp) from the verified payload
+4. Applies the expiry — even with no network access, the correct expiry is always enforced
+
+This means blocking outbound traffic or deleting the call-home cache cannot extend license validity. The expiry is anchored to the signed JWT.
+
+## JWT payload claims
+
+| Claim | Type | Description |
+|---|---|---|
+| `jti` | string | Unique license identifier |
+| `sub` | string | Licensed email address |
+| `iss` | string | `certforge.xyz` |
+| `iat` | Unix timestamp | Issued at |
+| `exp` | Unix timestamp | Expires at |
+| `org_name` | string | Licensed organization name |
+| `tier` | string | `trial` \| `starter` \| `pro` \| `enterprise` |
+| `cert_limit` | int | Maximum active certificates |
+| `user_limit` | int | Maximum user accounts |
+| `dtp_limit` | int | Maximum Domain Trust Profiles |
+| `grace_days` | int | Grace period after expiry |
+| `features` | string[] | Enabled feature flags |
+| `version` | string | Minimum compatible CertForge version |
+
+## Feature flags
+
+Feature flags in the `features` array enable capabilities beyond the base tier:
+
+| Flag | Description |
+|---|---|
+| `ha` | High-availability / multi-node deployment |
+| `siem` | SIEM forwarding (syslog / webhook) |
+| `acme` | ACME certificate issuance |
+| `oidc` | SSO / OIDC authentication |
+| `mtls` | mTLS client certificate enforcement |
+| `api` | REST API access |
+
+## Inspecting a license
+
+```bash
+# Decode the payload (does not verify signature)
+cat license.jwt | cut -d. -f2 | base64 -d 2>/dev/null | python3 -m json.tool
+```
+
+Or view current license details in the CertForge dashboard at **/license**.
+
+## Call-home refresh
+
+Every 24 hours, CertForge contacts `app.certforge.xyz` and receives an updated license state (in case of renewal, upgrade, or limit change). The signed JWT remains the ground truth for the expiry date — call-home can extend or modify other claims by returning a new signed JWT.
+
+## Grace period behavior
+
+| State | Behavior |
+|---|---|
+| License valid, call-home succeeding | Full functionality |
+| License valid, call-home failing | Full functionality; warning logged |
+| License expired, call-home succeeding (renewal detected) | Full functionality |
+| License expired, call-home failing, within grace period | Full functionality; warning banner shown |
+| License expired, call-home failing, past grace period | Certificate issuance blocked |

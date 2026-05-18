@@ -1,0 +1,97 @@
+---
+title: "Email Setup"
+description: "Configure SMTP to enable email notifications, alerts, and scheduled reports."
+---
+
+SMTP enables CertForge to send password resets, alert notifications, approval emails, and scheduled reports. Configure it in **Admin → Settings → Notifications**.
+
+## SMTP configuration
+
+| Field | Description | Example |
+|---|---|---|
+| **Host** | SMTP server hostname | `smtp.sendgrid.net` |
+| **Port** | SMTP port | `587` (STARTTLS) or `465` (TLS) |
+| **Username** | Auth username | `apikey` |
+| **Password** | Auth password | (API key or password) |
+| **From address** | The `From:` header | `noreply@corp.com` |
+| **To (admin alerts)** | Org-wide alert destination | `ops@corp.com, security@corp.com` |
+| **TLS** | Use implicit TLS | Off for STARTTLS (587), On for port 465 |
+
+After saving, click **Send Test Email** to confirm.
+
+## Recommended providers
+
+<CardGroup cols={2}>
+  <Card title="SendGrid" icon="envelope">
+    Port 587, username `apikey`, password = API key. Generous free tier.
+  </Card>
+  <Card title="AWS SES" icon="aws">
+    Port 587. Use SMTP credentials from IAM. Very low cost at volume.
+  </Card>
+  <Card title="Postmark" icon="envelope">
+    Port 587. Excellent deliverability for transactional email.
+  </Card>
+  <Card title="Office 365" icon="microsoft">
+    Port 587, STARTTLS. Requires app password if MFA is enabled on the account.
+  </Card>
+</CardGroup>
+
+## What gets sent
+
+| Email | Trigger |
+|---|---|
+| Email verification | Account registration |
+| Password reset | Forgot password request |
+| License & welcome | Self-hosted license download |
+| Alert notification | Alert rule fires |
+| Approval submitted | New cert request enters queue |
+| Approval outcome | Request approved or rejected |
+| Scheduled report | Report subscription fires (daily or weekly) |
+
+## Alert subscriptions (personal)
+
+Users can opt in to receive personal emails when specific alert rules fire:
+
+1. Go to **Profile → Alert Subscriptions**
+2. Check the alert rules to follow
+3. Save
+
+Requires an email address on the account and SMTP configured.
+
+## Report subscriptions (scheduled)
+
+Users can receive scheduled email reports:
+
+1. Go to **Profile → Report Subscriptions**
+2. Enable reports and choose daily or weekly delivery
+3. Save
+
+Available reports: Certificate Inventory, Expiring Certificates (next 30 days), Approval Activity (last 30 days).
+
+The first delivery happens within an hour of enabling. Subsequent deliveries follow the selected schedule.
+
+## Email template customization
+
+Default templates can be customized in **Admin → Settings → Email Templates**. Templates use Go's `text/template` syntax.
+
+Available variables:
+
+```
+{{.Email}}          — recipient email address
+{{.OrgName}}        — organization name
+{{.TrialDays}}      — trial duration in days
+{{.DownloadURL}}    — binary download link
+{{.SetPasswordURL}} — account activation link
+```
+
+Leave a template blank to use the built-in default.
+
+## Troubleshooting
+
+**Test email not received** — Check spam folder. Verify the From address is authorized to send from your SMTP server (SPF/DKIM).
+
+**Authentication failed** — Verify username and password. For Gmail/Office 365, use an app-specific password rather than your account password.
+
+**Connection refused** — Check host and port. For port 587, TLS should be **off** (STARTTLS is negotiated after connection). For port 465, TLS should be **on**.
+
+**Emails going to spam** — Configure SPF, DKIM, and DMARC records for your From domain. Use a dedicated transactional email service rather than a personal mail server.

@@ -1,0 +1,89 @@
+---
+title: "Configuration Reference"
+description: "All config.yaml options for CertForge."
+---
+
+The full configuration reference is in the [Self-Hosted Configuration](/self-hosted/configuration) page. This page is a quick-reference index of every key.
+
+## Top-level keys
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `mode` | string | Yes | `self-hosted` or `cloud` |
+| `platform_domain` | string | Cloud only | Base URL for absolute links in emails |
+
+## `server`
+
+| Key | Default | Description |
+|---|---|---|
+| `listen_address` | `0.0.0.0` | IP to bind |
+| `port` | `8443` | mTLS enrollment API port |
+| `dashboard_port` | `8080` | Dashboard HTTP port |
+| `dashboard_enabled` | `true` | Enable the web dashboard |
+| `acme_base_url` | auto | ACME directory URL advertised to clients |
+| `allowed_cidrs` | `[]` (all) | IP allowlist for dashboard access |
+
+## `storage`
+
+| Key | Default | Description |
+|---|---|---|
+| `base_path` | `./data` | Directory for all runtime data |
+| `storage_key` | — | AES-256 hex key for CA key encryption — **set via `CERTFORGE_STORAGE_KEY` env var** |
+
+## `database`
+
+| Key | Description |
+|---|---|
+| `url` | PostgreSQL connection string — **set via `DATABASE_URL` env var**. Empty = SQLite. |
+
+## `server_tls`
+
+| Key | Description |
+|---|---|
+| `ca_id` | Internal CA ID for the dashboard TLS certificate |
+| `domains` | Hostnames / IPs for the dashboard cert SAN |
+| `renew_before` | Renew when less than this duration remains (e.g. `720h`) |
+| `acme_ca_id` | ACME CA for public-facing domains |
+| `public_domains` | Public FQDNs to get ACME-issued certs for |
+
+## `acme`
+
+| Key | Description |
+|---|---|
+| `mode` | `production` or `staging` |
+
+## `dns`
+
+| Key | Description |
+|---|---|
+| `solver` | `cloudflare` \| `route53` \| `manual` |
+| `cloudflare.api_token` | Cloudflare API token |
+| `route53.region` | AWS region |
+| `route53.hosted_zone_id` | Route 53 zone ID |
+| `propagation_timeout` | DNS propagation wait (default `60s`) |
+
+## `call_home`
+
+| Key | Default | Description |
+|---|---|---|
+| `interval` | `24h` | How often to ping `certforge.xyz` |
+| `timeout` | `30s` | Per-request timeout |
+| `proxy` | — | HTTP proxy URL |
+| `proxy_username` | — | Proxy auth username |
+| `proxy_password` | — | Proxy auth password — **set via `CERTFORGE_PROXY_PASSWORD` env var** |
+
+## Environment variable overrides
+
+These environment variables always win over the YAML file:
+
+| Variable | Overrides |
+|---|---|
+| `DATABASE_URL` | `database.url` |
+| `CERTFORGE_STORAGE_KEY` | `storage.storage_key` |
+| `CERTFORGE_PROXY_PASSWORD` | `call_home.proxy_password` |
+
+<Warning>
+Never store database passwords, storage keys, or proxy passwords in `config.yaml`. Use environment variables set in your systemd unit override or secrets manager.
+</Warning>
+
+See [Full Configuration Reference →](/self-hosted/configuration) for complete examples.

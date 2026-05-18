@@ -1,0 +1,80 @@
+---
+title: "Licensing"
+description: "How CertForge licenses work — what they control, how they're verified, and what happens when they expire."
+---
+
+Self-hosted CertForge requires a license file (`license.jwt`) to operate. The license is a signed JWT — it encodes your entitlements and cannot be modified.
+
+## Obtaining a license
+
+<CardGroup cols={2}>
+  <Card title="Trial (30 days)" icon="flask" href="https://certforge.xyz/download">
+    Request from the download page. Delivered by email immediately.
+  </Card>
+  <Card title="Commercial" icon="building" href="mailto:sales@certforge.xyz">
+    Contact sales@certforge.xyz. Delivered when payment is confirmed.
+  </Card>
+</CardGroup>
+
+## What the license controls
+
+| Limit | Description |
+|---|---|
+| **Expiry date** | License is invalid after this date |
+| **Certificate limit** | Maximum active certificates in the org |
+| **User limit** | Maximum user accounts |
+| **DTP limit** | Maximum Domain Trust Profiles |
+| **Feature flags** | Which features are enabled (HA, ACME, SIEM, etc.) |
+
+If a limit is exceeded, new issuances are blocked but existing certificates continue to work.
+
+## How verification works
+
+**On startup — offline:** The JWT signature is verified against the CertForge public key embedded in the binary. The expiry date is read from the signed `exp` claim. This happens entirely offline, before any network call, and cannot be bypassed by blocking outbound traffic.
+
+**Call-home (periodic):** Every 24 hours, CertForge pings `app.certforge.xyz` to report usage and receive updated license state. Renewals and upgrades take effect without restarting.
+
+## Grace period
+
+If the license expires and call-home cannot reach `app.certforge.xyz`:
+
+| Period | What happens |
+|---|---|
+| Days 1–7 | All functionality available; warning banner shown |
+| Day 8+ | Certificate issuance blocked; dashboard and existing certs unaffected |
+
+## Installing the license
+
+Place `license.jwt` in your `storage.base_path` directory (default: `/opt/certforge/data/`):
+
+```bash
+cp license.jwt /opt/certforge/data/license.jwt
+sudo systemctl restart certforge
+```
+
+## Call-home behind a proxy
+
+```yaml
+call_home:
+  interval: 24h
+  timeout: 30s
+  proxy: http://proxy.internal:3128
+  proxy_username: user
+  # proxy_password: set via CERTFORGE_PROXY_PASSWORD env var
+```
+
+<Warning>
+For fully air-gapped environments (no outbound internet possible even through a proxy), contact [sales@certforge.xyz](mailto:sales@certforge.xyz) for an offline license arrangement.
+</Warning>
+
+## License dashboard
+
+View license status at **/license** in the dashboard:
+
+- Current plan, expiry, limits, and features
+- Call-home history (timestamp and status of recent pings)
+- Download the current `license.jwt` file
+
+## Renewal
+
+When your license is renewed, a new `license.jwt` is emailed. Install it the same way as the initial installation, then restart. Call-home will also detect the renewal automatically if your license is renewed before the current one expires.

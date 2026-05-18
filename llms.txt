@@ -1,0 +1,61 @@
+# CertForge
+
+> Certificate governance platform for engineering teams. Approval workflows, audit trails, and lifecycle management for TLS certificates — cloud or self-hosted.
+
+## What it is
+
+CertForge sits between your devices and your certificate authorities and enforces policy before any certificate is issued. Every request is matched to a Domain Trust Profile (DTP) that defines which CA to use, whether approval is required, who can request, and which environments are permitted.
+
+## Deployment
+
+- **Cloud**: app.certforge.xyz — managed, no installation
+- **Self-hosted**: Linux binary + PostgreSQL (or SQLite for zero-config). Annual license required.
+
+## Core concepts
+
+- **Certificate Authorities (CAs)**: Internal (root/intermediate, private PKI) or ACME (Let's Encrypt, ZeroSSL). CA private keys encrypted AES-256-GCM at rest.
+- **Domain Trust Profiles (DTPs)**: Policy objects — which domains, which CA, approval required or not, environment restrictions. Every cert request must match a DTP.
+- **Approval workflow**: Optional per-DTP. Requests queue for human review. Approvers see requester, domains, justification. Audit chain is hash-chained and tamper-evident.
+- **Devices**: Any endpoint (server, VM, container, IoT device) that holds a CertForge-issued certificate.
+
+## Key features
+
+- Internal CA management with encrypted key storage
+- ACME (Let's Encrypt / ZeroSSL) with DNS-01 challenge solving (Cloudflare, Route53, manual)
+- Approval workflow with email notification and escalation
+- Compliance audit trail (tamper-evident hash chain on approval ledger)
+- Alerts: cert_expiring and approval_pending rule types, email/webhook/Slack/PagerDuty delivery
+- Reports: Certificate Inventory, Expiring Certificates, Approval Activity — dashboard + CSV + scheduled email
+- Multi-tenant: organizations table, org_id FK on all data, role-based access control
+- OIDC / SSO: Azure AD and standard OIDC, group-to-role mapping, per-org config
+- mTLS client auth: devices authenticate with client certificates, not API keys
+- HA / clustering: leader election via PostgreSQL advisory locks, node heartbeats dashboard
+- Self-hosted license: JWT signed with RSA, exp claim verified offline, call-home to app.certforge.xyz, grace period enforcement
+
+## Permission model
+
+- Platform superuser > Platform admin (cross-org write) > Platform viewer (cross-org read) > Org admin > Org operator > Org viewer
+- DTP-level permissions additive on top of org role
+- OIDC users have no CertForge password; MFA enforced at IdP
+
+## Tech stack
+
+- Go binary (single executable)
+- PostgreSQL (production) or SQLite (self-hosted zero-config)
+- DB-backed sessions, audit events, approval records, certificates
+- SMTP for email; webhook/Slack/PagerDuty for alerts
+
+## Docs
+
+- Full documentation: https://docs.certforge.xyz
+- Getting started (cloud): https://docs.certforge.xyz/getting-started/cloud-quickstart
+- Self-hosted install: https://docs.certforge.xyz/getting-started/self-hosted-install
+- Configuration reference: https://docs.certforge.xyz/self-hosted/configuration
+- API overview: https://docs.certforge.xyz/api/overview
+
+## Contact
+
+- Website: https://certforge.xyz
+- App: https://app.certforge.xyz
+- Sales: sales@certforge.xyz
+- Support: support@certforge.xyz

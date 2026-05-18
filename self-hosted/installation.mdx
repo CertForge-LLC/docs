@@ -1,0 +1,190 @@
+---
+title: "Installation"
+description: "Full installation walkthrough for production CertForge Self-Hosted deployments."
+---
+
+## Download
+
+Download the binary for your platform from the [releases page](https://github.com/certforge/self-hosted/releases/latest).
+
+| Platform | Filename |
+|----------|---------|
+| Linux amd64 | `certforge-linux-amd64` |
+| Linux arm64 | `certforge-linux-arm64` |
+| macOS amd64 | `certforge-darwin-amd64` |
+| macOS arm64 | `certforge-darwin-arm64` |
+| Windows amd64 | `certforge-windows-amd64.exe` |
+
+```bash
+# Linux amd64
+curl -Lo /usr/local/bin/certforge \
+  https://github.com/certforge/self-hosted/releases/latest/download/certforge-linux-amd64
+chmod +x /usr/local/bin/certforge
+certforge --version
+```
+
+---
+
+## Create a dedicated user
+
+Running as root is not recommended. Create a system user:
+
+```bash
+useradd --system --no-create-home --shell /usr/sbin/nologin certforge
+```
+
+---
+
+## Set up directories
+
+```bash
+# Application data — persistent across upgrades
+mkdir -p /opt/certforge/data
+
+# Config
+mkdir -p /etc/certforge
+
+# Logs (optional — systemd journal is preferred)
+mkdir -p /var/log/certforge
+
+# Set ownership
+chown -R certforge:certforge /opt/certforge /var/log/certforge
+chmod 750 /opt/certforge/data
+```
+
+---
+
+## Install the license file
+
+```bash
+cp license.jwt /opt/certforge/data/license.jwt
+chown certforge:certforge /opt/certforge/data/license.jwt
+chmod 640 /opt/certforge/data/license.jwt
+```
+
+---
+
+## Configuration file
+
+Create `/etc/certforge/config.yaml`:
+
+```yaml
+mode: self-hosted
+
+server:
+  listen_address: 0.0.0.0
+  dashboard_port: 8080
+  port: 8443
+  dashboard_enabled: true
+  read_timeout: 30s
+  write_timeout: 30s
+  # Restrict dashboard to specific networks (recommended for production)
+  allowed_cidrs:
+    - 10.0.0.0/8
+    - 192.168.0.0/16
+
+storage:
+  base_path: /opt/certforge/data
+
+# Optional: PostgreSQL for multi-org or HA deployments
+# database:
+#   url: postgres://certforge:password@localhost:5432/certforge?sslmode=require
+
+# ACME providers (add your own or use the built-in internal CA)
+acme:
+  mode: production
+  providers:
+    letsencrypt:
+      directory_url: https://acme-v02.api.letsencrypt.org/directory
+    zerossl:
+      directory_url: https://acme.zerossl.com/v2/DV90
+
+# TLS for the dashboard (optional — use a reverse proxy instead if preferred)
+# server_tls:
+#   domains:
+#     - certforge.internal
+#   ca_id: internal-ca
+```
+
+Set permissions:
+```bash
+chown root:certforge /etc/certforge/config.yaml
+chmod 640 /etc/certforge/config.yaml
+```
+
+---
+
+## Install as a systemd service
+
+See [Running as a systemd Service](/self-hosted/systemd) for the full unit file.
+
+---
+
+## Firewall
+
+Open the required ports:
+
+```bash
+# Dashboard
+ufw allow 8080/tcp comment "CertForge dashboard"
+
+# mTLS ACME API (restrict to internal networks)
+ufw allow from 10.0.0.0/8 to any port 8443 proto tcp comment "CertForge ACME API"
+ufw allow from 192.168.0.0/16 to any port 8443 proto tcp comment "CertForge ACME API"
+
+# HTTP-01 ACME validation (only if using HTTP-01)
+# ufw allow 80/tcp comment "ACME HTTP-01"
+```
+
+---
+
+## First launch
+
+```bash
+# Start via systemd
+systemctl start certforge
+systemctl status certforge
+
+# Or run directly for testing
+certforge --config /etc/certforge/config.yaml
+```
+
+Open the dashboard at `http://your-server:8080`. You will be prompted to create the initial superuser account on the first visit.
+
+---
+
+## Verify the installation
+
+```bash
+# Check the process is running
+systemctl is-active certforge
+
+# Check license status
+curl -s http://localhost:8080/api/license | jq .
+
+# Check ACME directory is reachable
+curl -s http://localhost:8443/acme/v2/directory | jq .meta
+```
+
+---
+
+## PostgreSQL setup (optional)
+
+If you need PostgreSQL:
+
+```bash
+# Create the database and user
+psql -U postgres << 'SQL'
+CREATE USER certforge WITH PASSWORD 'strong-password-here';
+CREATE DATABASE certforge OWNER certforge;
+GRANT ALL PRIVILEGES ON DATABASE certforge TO certforge;
+SQL
+```
+
+Add to your config:
+```yaml
+database:
+  url: postgres://certforge:strong-password-here@localhost:5432/certforge?sslmode=require
+```
+
+CertForge runs schema migrations automatically on startup — no manual `CREATE TABLE` needed.

@@ -1,0 +1,164 @@
+---
+title: "API Reference"
+description: "REST API for programmatic access to CertForge certificates, approvals, and audit data."
+---
+
+CertForge exposes a REST API for programmatic management. All endpoints require an **API key**.
+
+## Authentication
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Generate API keys in **Admin → API Keys → New Key**. Keys are org-scoped. Store them securely — they are shown once at creation time.
+
+## Base URL
+
+```
+https://app.certforge.xyz/api/v1        (cloud)
+https://your-host/api/v1                (self-hosted)
+```
+
+## Certificates
+
+### List
+
+```http
+GET /api/v1/certs
+```
+
+| Query param | Description |
+|---|---|
+| `dtp` | Filter by DTP ID |
+| `expiring_days` | Only return certs expiring within N days |
+| `status` | `active` \| `expired` \| `revoked` |
+
+```json
+{
+  "certs": [
+    {
+      "id": "cert_abc123",
+      "domains": ["api.internal.corp.com"],
+      "dtp_id": "internal-services",
+      "environment": "production",
+      "issued_at": "2026-01-01T00:00:00Z",
+      "expires_at": "2027-01-01T00:00:00Z",
+      "days_remaining": 228,
+      "status": "active"
+    }
+  ],
+  "total": 1
+}
+```
+
+### Get
+
+```http
+GET /api/v1/certs/{id}
+```
+
+Returns the certificate record plus PEM-encoded certificate.
+
+### Revoke
+
+```http
+POST /api/v1/certs/{id}/revoke
+Content-Type: application/json
+
+{ "reason": "key_compromise" }
+```
+
+Valid reasons: `key_compromise`, `ca_compromise`, `affiliation_changed`, `superseded`, `cessation_of_operation`.
+
+## Approvals
+
+### List
+
+```http
+GET /api/v1/approvals?status=pending
+```
+
+### Get
+
+```http
+GET /api/v1/approvals/{id}
+```
+
+### Approve
+
+```http
+POST /api/v1/approvals/{id}/approve
+```
+
+### Reject
+
+```http
+POST /api/v1/approvals/{id}/reject
+Content-Type: application/json
+
+{ "reason": "Domain not in approved list" }
+```
+
+## Audit
+
+### Query events
+
+```http
+GET /api/v1/audit?event_type=certificate.&days=30&limit=100
+```
+
+| Query param | Description |
+|---|---|
+| `event_type` | Exact type, or prefix ending in `.` (e.g. `certificate.`) |
+| `days` | Events from the last N days |
+| `outcome` | `success` \| `failed` \| `pending` |
+| `limit` | Max results (default 100, max 1000) |
+
+## Organizations (platform API)
+
+Requires a platform admin API key.
+
+```http
+GET  /api/v1/platform/orgs
+POST /api/v1/platform/orgs
+GET  /api/v1/platform/orgs/{id}
+```
+
+## Error format
+
+```json
+{
+  "error": "certificate not found",
+  "code": "not_found"
+}
+```
+
+| HTTP status | Meaning |
+|---|---|
+| `400` | Bad request — invalid parameters |
+| `401` | Missing or invalid API key |
+| `403` | Insufficient permissions |
+| `404` | Resource not found |
+| `429` | Rate limit exceeded |
+| `500` | Internal server error |
+
+## Rate limiting
+
+1000 requests per minute per API key. Response headers:
+
+```
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 987
+X-RateLimit-Reset: 1716030060
+```
+
+## mTLS enrollment API
+
+The device enrollment API is separate from the REST API and uses mutual TLS:
+
+```
+POST https://your-host:8443/v1/enroll
+```
+
+Requires a client certificate in the TLS handshake. See the [mTLS guide](/concepts/devices) for details.

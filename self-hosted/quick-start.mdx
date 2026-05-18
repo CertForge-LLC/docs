@@ -1,0 +1,140 @@
+---
+title: "Quick Start"
+description: "Get CertForge Self-Hosted running in under 10 minutes."
+---
+
+This guide gets a single-node CertForge instance running with file-based storage. No database required.
+
+## Before you begin
+
+- A Linux host (Ubuntu 22.04+ or Debian 12+ recommended)
+- A `license.jwt` file — [request a trial](https://certforge.xyz/download) if you don't have one
+- Ports 8080 (dashboard) and 8443 (ACME API) available
+
+---
+
+## Step 1 — Download the binary
+
+```bash
+# Download the latest release
+curl -Lo certforge https://github.com/certforge/self-hosted/releases/latest/download/certforge-linux-amd64
+chmod +x certforge
+
+# Verify the binary runs
+./certforge --version
+```
+
+For ARM64 (AWS Graviton, Raspberry Pi 4+):
+```bash
+curl -Lo certforge https://github.com/certforge/self-hosted/releases/latest/download/certforge-linux-arm64
+```
+
+---
+
+## Step 2 — Create the data directory
+
+```bash
+mkdir -p data
+```
+
+---
+
+## Step 3 — Place your license file
+
+```bash
+cp /path/to/license.jwt data/license.jwt
+```
+
+---
+
+## Step 4 — Create a minimal config
+
+```bash
+cat > config.yaml << 'EOF'
+mode: self-hosted
+
+server:
+  listen_address: 0.0.0.0
+  dashboard_port: 8080   # Dashboard UI
+  port: 8443             # mTLS ACME API
+  dashboard_enabled: true
+
+storage:
+  base_path: ./data
+EOF
+```
+
+---
+
+## Step 5 — Start the server
+
+```bash
+./certforge --config config.yaml
+```
+
+You should see:
+
+```
+[certforge] License loaded: trial (30 days remaining)
+[dashboard] Dashboard → http://localhost:8080
+[proxy] Listening on :8443
+```
+
+---
+
+## Step 6 — Open the dashboard
+
+Open your browser to [http://localhost:8080](http://localhost:8080).
+
+On first run you will be prompted to create the initial superuser account. This account has full administrative access — use a strong password and store it in a password manager.
+
+---
+
+## Step 7 — Create your first Domain Trust Profile
+
+1. In the dashboard, go to **Trust Policies**
+2. Click **New Profile**
+3. Set the domain(s) you want to issue certificates for (e.g. `*.internal.example.com`)
+4. Choose your CA: **Internal CA** for private domains, or configure an ACME provider for public domains
+5. Set approval policy: **Auto-approve** for development, **Require approval** for production
+
+---
+
+## Step 8 — Issue your first certificate
+
+Point any ACME client at your CertForge instance:
+
+```bash
+# certbot example
+certbot certonly \
+  --server http://localhost:8443/acme/v2/directory \
+  --standalone \
+  -d your.domain.internal
+```
+
+Or use acme.sh:
+```bash
+acme.sh --issue \
+  --server http://localhost:8443/acme/v2/directory \
+  -d your.domain.internal \
+  --standalone
+```
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Run as a service" icon="gear" href="/self-hosted/systemd">
+    Set up a systemd unit so CertForge starts automatically and restarts on failure.
+  </Card>
+  <Card title="Full configuration" icon="file" href="/self-hosted/configuration">
+    Configure TLS, SMTP, DNS validation, alerts, and more.
+  </Card>
+  <Card title="Set up ACME" icon="certificate" href="/guides/acme-setup">
+    Connect to Let's Encrypt, ZeroSSL, or your own ACME CA.
+  </Card>
+  <Card title="Internal CA" icon="lock" href="/guides/internal-ca">
+    Issue certificates for internal domains without an external CA.
+  </Card>
+</CardGroup>

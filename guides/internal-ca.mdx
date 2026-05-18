@@ -1,0 +1,102 @@
+---
+title: "Internal CA"
+description: "Set up a private Certificate Authority for internal domains."
+---
+
+An internal CA lets you issue certificates for internal domains (`.internal`, `.corp`, private IP addresses) without depending on an external provider. Certificates are trusted by any machine that has your root CA installed in its trust store.
+
+## Create a root CA
+
+1. Go to **Admin → Certificate Authorities → New**
+2. Select type **Internal — Root**
+3. Fill in:
+
+| Field | Description | Example |
+|---|---|---|
+| Name | Human label | `Corp Root CA` |
+| Common Name | The CA's subject CN | `Corp Internal Root CA` |
+| Organization | Your org name | `ACME Corp` |
+| Validity | How long the root is valid | `3650` days (10 years) |
+| Key type | RSA 2048/4096 or ECDSA P-256/P-384 | `RSA 4096` |
+
+4. Save — CertForge generates the key pair and self-signed certificate. The private key is encrypted at rest.
+
+## Download the root certificate
+
+After creating the CA, download the root certificate PEM from **Admin → Certificate Authorities → [CA] → Download Root**. Distribute this file to all machines that should trust certificates issued by your CA.
+
+### Install root on Linux (system-wide)
+
+```bash
+sudo cp corp-root-ca.pem /usr/local/share/ca-certificates/corp-root-ca.crt
+sudo update-ca-certificates
+```
+
+### Install root on Windows
+
+```powershell
+Import-Certificate -FilePath corp-root-ca.pem `
+  -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+### Install root on macOS
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain corp-root-ca.pem
+```
+
+## Create an intermediate CA (optional)
+
+Using an intermediate keeps your root CA private — if the intermediate is ever compromised, you revoke just the intermediate without touching the root.
+
+1. Go to **Admin → Certificate Authorities → New**
+2. Select type **Internal — Intermediate**
+3. Choose the parent root CA
+4. Fill in name, CN, validity, key type
+5. Save — CertForge signs the intermediate with the root automatically
+
+## Create a Domain Trust Profile
+
+1. Go to **Admin → Domain Trust Profiles → New**
+2. Set:
+   - Domains: `*.internal.corp.com` (or your internal domain pattern)
+   - CA: select your root or intermediate CA
+   - Require approval: choose based on your policy
+3. Save
+
+## Issue your first internal certificate
+
+### Via dashboard
+1. Go to **Devices → Enroll New**
+2. Fill in device name and domains
+3. Submit — the request enters the approval queue (or is issued immediately if approval is off)
+4. Download the certificate from **Devices → [device] → Download**
+
+### Via ACME client
+Point any ACME client at your CertForge ACME directory:
+
+```bash
+certbot certonly \
+  --server https://certforge.internal:8443/acme/directory \
+  --standalone \
+  -d myservice.internal.corp.com
+```
+
+CertForge intercepts the ACME order, applies DTP policy, and fulfills it from your internal CA.
+
+## Certificate validity and renewal
+
+Default certificate validity is 90 days (configurable per DTP). The renewal scheduler automatically submits renewal requests when a certificate is within 30 days of expiry.
+
+For internal CAs there are no external rate limits — you can set shorter validity periods (e.g. 30 days) for enhanced security.
+
+## CRL (Certificate Revocation List)
+
+The CRL for each internal CA is available at:
+
+```
+GET /crl/{ca-id}/crl.pem
+```
+
+Configure services that should check revocation to poll this endpoint. The CRL is updated immediately when a certificate is revoked.

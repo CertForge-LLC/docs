@@ -1,0 +1,80 @@
+---
+title: "Upgrading"
+description: "How to upgrade CertForge Self-Hosted to a new version."
+---
+
+CertForge upgrades are a binary swap. The data directory is forward-compatible — new versions run schema migrations automatically on startup.
+
+## Before you upgrade
+
+1. Check the [changelog](https://certforge.xyz/changelog) for breaking changes
+2. Back up your data directory:
+   ```bash
+   tar -czf certforge-data-backup-$(date +%Y%m%d).tar.gz /opt/certforge/data
+   ```
+3. If using PostgreSQL, take a database backup:
+   ```bash
+   pg_dump -U certforge certforge > certforge-db-backup-$(date +%Y%m%d).sql
+   ```
+
+---
+
+## Upgrade steps
+
+```bash
+# 1. Download the new binary
+curl -Lo /tmp/certforge-new \
+  https://github.com/certforge/self-hosted/releases/latest/download/certforge-linux-amd64
+chmod +x /tmp/certforge-new
+
+# 2. Verify it starts (--version doesn't need config)
+/tmp/certforge-new --version
+
+# 3. Stop the service
+systemctl stop certforge
+
+# 4. Replace the binary
+cp /tmp/certforge-new /usr/local/bin/certforge
+
+# 5. Start the service
+systemctl start certforge
+systemctl status certforge
+```
+
+Migrations (if any) run automatically on startup. Watch the logs:
+
+```bash
+journalctl -u certforge -f
+```
+
+---
+
+## Rollback
+
+If something goes wrong, restore the previous binary and restart:
+
+```bash
+# Assuming you kept the previous binary as certforge.prev
+systemctl stop certforge
+cp /usr/local/bin/certforge.prev /usr/local/bin/certforge
+systemctl start certforge
+```
+
+If the database schema was migrated forward, rolling back the binary may fail on migrations that the older binary doesn't understand. Restore from your database backup in that case.
+
+---
+
+## Version pinning
+
+To pin to a specific version, replace `latest` with the version tag:
+
+```bash
+curl -Lo certforge \
+  https://github.com/certforge/self-hosted/releases/download/v1.2.3/certforge-linux-amd64
+```
+
+---
+
+## In-product update notifications
+
+When a new version is available, a banner appears in the dashboard License page (`/license`) and the running version is shown alongside the latest available version. Upgrades are always manual — CertForge will not update itself automatically.

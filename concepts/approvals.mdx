@@ -1,0 +1,111 @@
+---
+title: "Approvals"
+description: "The human-in-the-loop governance layer — every certificate request reviewed before issuance."
+---
+
+# Approval Workflow
+
+The approval workflow is CertForge's governance layer. When a Domain Trust Profile requires approval, every certificate request is queued for human review before any certificate is issued. No certificate reaches a CA without sign-off.
+
+## Why approval matters
+
+Without a governance layer, any authorized device or script can request and receive a certificate immediately. The approval workflow ensures that:
+
+- A human reviews what domain is being requested and why
+- The requester's justification is recorded in the audit trail
+- Mistakes (wrong domain, wrong CA, wrong environment) are caught before issuance
+- Compliance requirements for change management are met
+
+## Request lifecycle
+
+```
+1. Request submitted (device, dashboard, API)
+         │
+         ▼
+2. DTP matched → approval required?
+         │
+    Yes  │  No
+         │   └──► Certificate issued immediately
+         ▼
+3. Request enters pending queue
+         │
+         ▼
+4. Approvers notified (email if SMTP configured)
+         │
+         ▼
+5. Approver reviews: domains, requester, justification, policy
+         │
+    ┌────┴────┐
+    │         │
+Approve    Reject (with reason)
+    │         │
+    ▼         ▼
+6. Certificate    Request closed
+   issued         Requester notified
+         │
+         ▼
+7. Audit event written (actor, domains, justification, outcome)
+```
+
+## What approvers see
+
+The approval queue shows:
+
+| Field | Description |
+|---|---|
+| Request ID | Unique identifier for the approval chain |
+| Requested by | Username / email of the requester |
+| Domains | The certificate's subject alternative names |
+| Trust Profile | Which DTP matched |
+| Environment | Production, staging, dev, etc. |
+| Justification | Text the requester provided |
+| Requested at | Timestamp |
+| Status | Pending / Approved / Rejected |
+
+## Justification
+
+When submitting a request that requires approval, the requester must provide a **justification** — a plain-text explanation of why this certificate is needed. The justification is stored permanently in the audit trail and is visible to all approvers.
+
+## Who can approve
+
+Any user with the following roles can approve requests:
+- **Org admin** — can approve any request in the org
+- **Org operator** — can approve requests for DTPs they have admin-level DTP access on
+
+Platform admins and superusers can approve across all organizations.
+
+## Audit chain integrity
+
+Every approval action (submit, approve, reject, void) is written to an append-only ledger with a cryptographic hash chain. Each record includes the hash of the previous record. This makes the audit trail tamper-evident — any modification to a past record breaks the chain, which is detected on startup and on-demand.
+
+You can verify the chain integrity at **Compliance → Audit Chain**.
+
+## Void
+
+An admin can **void** a pending request — this closes it without issuing a certificate. Voiding is logged with the actor's identity and reason.
+
+## Email notifications
+
+If SMTP is configured:
+- **On submission:** Approvers in the org are notified of new pending requests
+- **On approve/reject:** The original requester is notified of the outcome
+- **Escalation:** If a request remains pending past the escalation threshold, approvers are reminded
+
+Configure SMTP in **Admin → Settings → Notifications**.
+
+## API-driven requests
+
+Automated systems can submit requests via the mTLS API:
+
+```bash
+POST /v1/enroll
+Content-Type: application/json
+
+{
+  "domains": ["api.internal.corp.com"],
+  "environment": "production",
+  "justification": "New service deployment — ticket #1234"
+}
+```
+
+The response includes the `approval_id`. The system can poll `/approvals/{id}` for status, or rely on the certificate being written to a known path once approved.

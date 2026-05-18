@@ -1,0 +1,75 @@
+---
+title: "Alerts"
+description: "Get notified when certificates are expiring or approvals are stuck."
+---
+
+CertForge alerts notify your team when conditions that need attention occur — expiring certificates, pending approvals that have gone stale, or policy violations.
+
+## Alert types
+
+| Alert type | Triggers when |
+|---|---|
+| `cert_expiring` | One or more certificates expire within N days |
+| `approval_pending` | A certificate request has been waiting for approval longer than N hours |
+
+## Configuring rules
+
+Go to **Admin → Alerts → Rules** to create and manage rules.
+
+| Setting | Description |
+|---|---|
+| **Label** | Human-readable name (e.g. "30-day expiry warning") |
+| **Type** | `cert_expiring` or `approval_pending` |
+| **Threshold** | Days until expiry, or hours pending |
+| **Cooldown** | Minimum hours between repeat notifications for the same condition |
+| **Trust Profile filter** | Restrict rule to a specific DTP (optional) |
+| **Enabled** | Toggle on/off |
+
+### Example rules
+
+```
+30-day expiry warning:
+  Type: cert_expiring | Threshold: 30 | Cooldown: 24h
+
+7-day critical:
+  Type: cert_expiring | Threshold: 7 | Cooldown: 12h
+
+Overdue approval:
+  Type: approval_pending | Threshold: 24 | Cooldown: 24h
+```
+
+## How alerts fire
+
+The evaluator runs every 5 minutes. When a rule's condition is met:
+
+1. Alert state changes to **firing**
+2. All subscribed channels and users are notified
+3. Alert stays firing until the condition clears
+4. Cooldown prevents repeat notifications within the configured window
+
+## Notification channels
+
+Configure destinations in **Admin → Settings → Notifications**:
+
+| Channel | Notes |
+|---|---|
+| **Email (SMTP)** | Sent to the org-wide address(es) set in Admin → Settings |
+| **Webhook** | POST JSON payload to any URL |
+| **Slack** | Incoming Webhook URL |
+| **PagerDuty** | Integration key |
+
+<Note>
+Use the **Send Test** button after configuring a channel to confirm delivery before relying on it for real alerts.
+</Note>
+
+## Personal alert subscriptions
+
+Users can subscribe to specific rules to receive personal email notifications. Go to **Profile → Alert Subscriptions** and check the rules you want to follow.
+
+Requires an email address on your account and SMTP configured by your admin.
+
+## Alert dashboard
+
+**Alerts → Overview** shows firing alerts, recent history (last 7 days), and all configured rules. Unacknowledged firing alerts show a badge in the navigation.
+
+Click **Acknowledge** on a firing alert to suppress the badge until the condition changes. Acknowledgement is logged with the actor's identity.

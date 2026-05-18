@@ -1,0 +1,36 @@
+---
+title: "What is CertForge?"
+description: "Certificate governance for organizations that need to know what's trusted on their network and why."
+---
+
+CertForge is a certificate governance platform that gives security and operations teams a single place to define which domains can receive certificates, who must approve them, which CA issues them, and a complete audit trail of every issuance, renewal, and download.
+
+Developers get a standard ACME endpoint. Security gets policy enforcement and approval workflows. Everyone gets a dashboard instead of a spreadsheet.
+
+## Why CertForge
+
+Most organizations accumulate certificate chaos over time: dev teams self-signing and ignoring browser warnings, ops manually tracking renewal dates and missing them, security with no visibility into what's trusted where, and ACME automation bolted on per-application with no central policy.
+
+The result is outages from expired certs, shadow CAs no one controls, and audit findings because there's no record of who approved what.
+
+CertForge is the governance layer that sits in front of your CAs — public ACME or internal — and enforces the rules your organization actually needs.
+
+## Two deployment options
+
+<CardGroup cols={2}>
+  <Card title="Cloud (Hosted)" icon="cloud" href="https://app.certforge.xyz/signup">
+    Managed by CertForge. No infrastructure to run. Free tier available. Ideal for teams that want to get started immediately.
+  </Card>
+  <Card title="Self-Hosted" icon="server" href="/self-hosted/quick-start">
+    Run the binary on your own infrastructure. Full data sovereignty. License required. Ideal for air-gapped environments and compliance-sensitive organizations.
+  </Card>
+</CardGroup>
+
+## Key features
+
+- **Domain Trust Profiles** — policy objects that define which domains can get certs, which CA issues them, who must approve, and what key requirements apply
+- **Approval workflows** — human-in-the-loop approval with full audit trail; SOC 2 and ISO 27001 compatible
+- **ACME endpoint** — drop-in replacement for Let's Encrypt clients; works with certbot, acme.sh, and any RFC 8555 client
+- **Internal CA** — built-in CA for internal domains; no external CA required for private PKI
+- **Alerts** — configurable rules for expiring certs and stale approval queues, with email/webhook notifications
+- **Audit log** — immutable record of every certificate, approval, and admin action

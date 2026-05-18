@@ -1,0 +1,80 @@
+---
+title: "Certificate Lifecycle"
+description: "Internal CAs, ACME providers, key storage, and certificate rotation."
+---
+
+# Certificate Authorities
+
+CertForge supports two categories of Certificate Authority: **internal CAs** that you own and control, and **ACME CAs** (Let's Encrypt, ZeroSSL) for publicly-trusted certificates.
+
+## Internal CAs
+
+An internal CA is a CA whose private key is stored and managed by CertForge. Certificates signed by an internal CA are trusted by machines that have your root CA installed in their trust store.
+
+### Root CA
+
+A self-signed root CA. Create one when you want a private PKI that is entirely under your control. The root CA's certificate must be distributed to all machines that need to trust certificates signed by it (or by intermediates chained to it).
+
+**Use for:** internal services, device authentication, mTLS, air-gapped environments.
+
+### Intermediate CA
+
+An intermediate CA signed by another CA (internal or external). Using an intermediate keeps your root CA offline and limits exposure if the intermediate key is ever compromised — you can revoke the intermediate without touching the root.
+
+To create an intermediate, CertForge generates a Certificate Signing Request (CSR) that you sign with your root CA and upload back.
+
+### CA key storage
+
+Private keys are encrypted at rest using AES-256-GCM. In multi-node deployments the encrypted keys live in the database and are decrypted in memory when needed. The encryption key is set via the `CERTFORGE_STORAGE_KEY` environment variable — keep this secret.
+
+## ACME CAs
+
+ACME (Automatic Certificate Management Environment) is the protocol used by Let's Encrypt and ZeroSSL to issue publicly-trusted TLS certificates. CertForge acts as an ACME client on your behalf.
+
+### Supported providers
+
+| Provider | Trust | Free |
+|---|---|---|
+| Let's Encrypt | Publicly trusted by all major browsers | Yes |
+| ZeroSSL | Publicly trusted | Free tier available |
+| Custom ACME | Any ACME-compatible CA | Varies |
+
+### Domain validation
+
+ACME requires proving you control the domain before issuing a certificate. CertForge uses **DNS-01 challenge solving**, which works for wildcard domains and does not require an open HTTP port.
+
+Supported DNS providers for automatic challenge solving:
+
+- Cloudflare
+- Route 53 (AWS)
+- Manual (for providers not yet integrated — CertForge shows the TXT record to add)
+
+Configure your DNS provider in **Admin → DNS Accounts**.
+
+### Rate limits
+
+Let's Encrypt enforces [rate limits](https://letsencrypt.org/docs/rate-limits/). The most relevant:
+- 50 certificates per registered domain per week
+- 5 duplicate certificates per week
+
+CertForge tracks issued certificates and prevents requests that would hit rate limits.
+
+## CA operations
+
+### Rotation
+
+When a CA approaches expiry, create a new CA and update the Domain Trust Profiles that reference the old one. CertForge will use the new CA for all new issuances while existing certificates remain valid until their own expiry.
+
+### Revocation
+
+CertForge supports CRL (Certificate Revocation List) distribution for internal CAs. The CRL endpoint is available at `/crl/{ca-id}/crl.pem`.
+
+## Choosing a CA type
+
+| Scenario | Recommended CA |
+|---|---|
+| Internal microservices | Internal root or intermediate |
+| IoT device auth | Internal CA with client cert type |
+| Internet-facing web service | ACME (Let's Encrypt) |
+| Regulated/compliance environment | Internal CA — full audit trail and no external dependency |
+| Air-gapped network | Internal CA |

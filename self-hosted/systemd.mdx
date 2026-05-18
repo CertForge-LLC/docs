@@ -1,0 +1,140 @@
+---
+title: "Running as a Service"
+description: "Set up CertForge as a systemd service for automatic startup and restart."
+---
+
+## systemd unit file
+
+Create `/etc/systemd/system/certforge.service`:
+
+```ini
+[Unit]
+Description=CertForge Certificate Governance Server
+Documentation=https://certforge.xyz/docs
+After=network-online.target
+Wants=network-online.target
+# Uncomment if using PostgreSQL:
+# After=postgresql.service
+
+[Service]
+Type=simple
+User=certforge
+Group=certforge
+WorkingDirectory=/opt/certforge
+
+ExecStart=/usr/local/bin/certforge --config /etc/certforge/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/certforge/data /var/log/certforge
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=certforge
+
+# Environment (alternative to putting secrets in config.yaml)
+# EnvironmentFile=/etc/certforge/environment
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+systemctl daemon-reload
+systemctl enable certforge
+systemctl start certforge
+systemctl status certforge
+```
+
+---
+
+## View logs
+
+```bash
+# Follow live
+journalctl -u certforge -f
+
+# Last 100 lines
+journalctl -u certforge -n 100
+
+# Since last boot
+journalctl -u certforge -b
+```
+
+---
+
+## Secrets via environment file
+
+Instead of putting database passwords in `config.yaml`, use an environment file:
+
+Create `/etc/certforge/environment`:
+```bash
+CERTFORGE_DB_URL=postgres://certforge:secret@localhost:5432/certforge?sslmode=require
+```
+
+Set permissions:
+```bash
+chown root:certforge /etc/certforge/environment
+chmod 640 /etc/certforge/environment
+```
+
+Uncomment the `EnvironmentFile` line in the unit, then `systemctl daemon-reload && systemctl restart certforge`.
+
+<Note>
+Environment variable overrides for config values are not yet implemented. Use the `EnvironmentFile` approach with placeholder values in config.yaml for now, or store secrets in a secrets manager and generate the config at deploy time.
+</Note>
+
+---
+
+## Graceful reload
+
+CertForge supports `SIGHUP` for configuration reload (equivalent to a restart, but connections drain cleanly):
+
+```bash
+systemctl reload certforge
+```
+
+---
+
+## Logrotate
+
+If you write logs to a file instead of the journal:
+
+Create `/etc/logrotate.d/certforge`:
+```
+/var/log/certforge/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    postrotate
+        systemctl reload certforge 2>/dev/null || true
+    endscript
+}
+```
+
+---
+
+## Health check
+
+Add a simple HTTP health check to your monitoring:
+
+```bash
+curl -sf http://localhost:8080/health && echo "OK" || echo "UNHEALTHY"
+```
+
+For systemd watchdog integration, set `WatchdogSec=60s` in `[Service]` — CertForge will automatically notify the watchdog on each successful health tick.
