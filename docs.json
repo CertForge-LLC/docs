@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "name": "CertForge",
   "description": "Certificate governance platform — approval workflows, audit trails, and lifecycle management for TLS certificates.",
-  "theme": "venus",
+  "theme": "linden",
   "colors": {
     "primary": "#1d4ed8",
     "light": "#3b82f6",
