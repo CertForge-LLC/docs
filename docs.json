@@ -20,27 +20,27 @@
     "links": [
       {
         "label": "Sign In",
-        "href": "https://app.certforge.xyz/login"
+        "href": "https://app.certgovernance.app/login"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Get Started",
-      "href": "https://app.certforge.xyz"
+      "href": "https://app.certgovernance.app"
     }
   },
   "navigation": {
     "global": {
       "anchors": [
         {
-          "anchor": "certforge.xyz",
+          "anchor": "certgovernance.app",
           "icon": "house",
-          "href": "https://certforge.xyz"
+          "href": "https://certgovernance.app"
         },
         {
           "anchor": "Changelog",
           "icon": "scroll-text",
-          "href": "https://certforge.xyz/changelog"
+          "href": "https://certgovernance.app/changelog"
         },
         {
           "anchor": "Support",
@@ -105,7 +105,7 @@
   },
   "footer": {
     "socials": {
-      "website": "https://certforge.xyz"
+      "website": "https://certgovernance.app"
     }
   }
 }
