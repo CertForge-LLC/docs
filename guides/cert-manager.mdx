@@ -31,7 +31,7 @@ CertForge must be configured for the domains your workloads will request certifi
 **Cloud (app.certgovernance.app):**
 
 ```bash
-helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+helm install certforge-issuer oci://ghcr.io/certforge-llc/charts/certforge-issuer \
   --namespace certforge-system \
   --create-namespace \
   --set certforge.url=https://app.certgovernance.app \
@@ -41,7 +41,7 @@ helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
 **Self-hosted:** replace the URL with your CertForge instance URL:
 
 ```bash
-helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+helm install certforge-issuer oci://ghcr.io/certforge-llc/charts/certforge-issuer \
   --namespace certforge-system \
   --create-namespace \
   --set certforge.url=https://certforge.internal.example.com \
@@ -51,7 +51,7 @@ helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
 If your CertForge instance uses an internal or self-signed CA, add the CA certificate so the controller can verify TLS:
 
 ```bash
-helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+helm install certforge-issuer oci://ghcr.io/certforge-llc/charts/certforge-issuer \
   --namespace certforge-system \
   --create-namespace \
   --set certforge.url=https://certforge.internal.example.com \
