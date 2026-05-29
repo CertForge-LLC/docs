@@ -1,0 +1,77 @@
+---
+title: "Notifications"
+description: "Configure Webhook, Slack, Microsoft Teams, and Webex notification channels."
+---
+
+CertForge sends notifications through org-level channels configured in **Admin → Settings → Notifications**. Channels are used for:
+
+- Alert notifications (expiring certs, stale approval queues)
+- Approval requests (notify approvers of new pending requests)
+- Approval outcomes (notify requesters when a decision is made)
+
+## Supported channels
+
+| Channel | Type |
+|---|---|
+| Webhook | HTTPS POST with JSON payload, optional HMAC signature |
+| Slack | Incoming Webhook URL |
+| Microsoft Teams | Incoming Webhook URL |
+| Webex | Bot Token + Room ID |
+
+<Note>
+SMTP / email notification is a platform-level setting configured by the self-hosted operator. It is not available as a per-org notification channel. See the Email Setup guide for self-hosted deployments.
+</Note>
+
+## Configure a Webhook
+
+1. Go to **Admin → Settings → Notifications**
+2. Under **Webhook**, enter:
+
+| Field | Description |
+|---|---|
+| **URL** | The HTTPS endpoint that will receive POST requests |
+| **Secret** | Optional. When set, CertForge signs the request body with HMAC-SHA256 and includes the signature in the `X-CertForge-Signature` header (`sha256=<hex>`). Verify this header in your endpoint to confirm authenticity. |
+
+3. Click **Send Test** to confirm delivery
+
+The request body is a JSON object with `event`, `org_id`, `timestamp`, and `data` fields.
+
+## Configure Slack
+
+1. In Slack: App Directory → Incoming Webhooks → Add to Slack → select a channel → copy the webhook URL
+2. In CertForge: **Admin → Settings → Notifications → Slack**
+3. Paste the **Incoming Webhook URL**
+4. Click **Send Test**
+
+Messages are sent as plain text with key fields (domain, requester, DTP, status) formatted for readability.
+
+## Configure Microsoft Teams
+
+1. In Teams: navigate to the channel → click `...` → Connectors → Incoming Webhook → Configure → copy the URL
+2. In CertForge: **Admin → Settings → Notifications → Teams**
+3. Paste the **Incoming Webhook URL**
+4. Click **Send Test**
+
+Messages are sent as Adaptive Cards where supported.
+
+## Configure Webex
+
+1. Create a Webex Bot at [developer.webex.com](https://developer.webex.com) and copy its **Bot Token**
+2. Add the bot to the Webex space (room) you want to receive notifications in
+3. Find the **Room ID** for that space (use the Webex API or the developer portal)
+4. In CertForge: **Admin → Settings → Notifications → Webex**
+5. Enter the **Bot Token** and **Room ID**
+6. Click **Send Test**
+
+## Send Test
+
+Every channel has a **Send Test** button that sends a synthetic notification immediately. Use it after saving credentials to confirm the channel is working before relying on it for real events.
+
+If the test fails, an error message is shown inline. Common causes:
+
+| Channel | Common issue |
+|---|---|
+| Webhook | URL unreachable, TLS certificate error, or firewall blocking outbound requests from CertForge |
+| Slack | Webhook URL revoked or the Slack app removed from the channel |
+| Teams | Connector removed from the channel or URL expired |
+| Webex | Bot not added to the room, or incorrect Room ID |

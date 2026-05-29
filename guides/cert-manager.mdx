@@ -1,0 +1,239 @@
+---
+title: "cert-manager Integration"
+description: "Route Kubernetes certificate requests through CertForge policy using the certforge-issuer external issuer."
+---
+
+The `certforge-issuer` is a cert-manager [external issuer](https://cert-manager.io/docs/contributing/external-issuers/) that intercepts `CertificateRequest` objects and submits them to CertForge for policy evaluation, approval, and issuance. Your existing `Certificate` manifests work unchanged — you just point `issuerRef` at CertForge instead of a built-in issuer.
+
+```
+Pod → cert-manager → certforge-issuer → CertForge API → CA
+                                      ← signed cert   ←
+```
+
+## Prerequisites
+
+- Kubernetes 1.24+
+- cert-manager v1.14+
+- A CertForge account with at least one Domain Trust Profile covering your cluster's domains
+
+## Before you install
+
+CertForge must be configured for the domains your workloads will request certificates for, otherwise requests will be rejected immediately with `InvalidRequest`.
+
+**1. Create a Domain Trust Profile** covering the domain patterns your workloads use. For example, if pods will request certs for `*.internal.example.com`, your DTP must include that pattern. Go to **Domain Trust Profiles → New** in the CertForge dashboard.
+
+**2. Generate an API token** — go to **Settings → API Keys** and create a token scoped to your organization. You will supply this during installation.
+
+## Installation
+
+### Helm (recommended)
+
+**Cloud (app.certgovernance.app):**
+
+```bash
+helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+  --namespace certforge-system \
+  --create-namespace \
+  --set certforge.url=https://app.certgovernance.app \
+  --set certforge.token=<your-api-token>
+```
+
+**Self-hosted:** replace the URL with your CertForge instance URL:
+
+```bash
+helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+  --namespace certforge-system \
+  --create-namespace \
+  --set certforge.url=https://certforge.internal.example.com \
+  --set certforge.token=<your-api-token>
+```
+
+If your CertForge instance uses an internal or self-signed CA, add the CA certificate so the controller can verify TLS:
+
+```bash
+helm install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+  --namespace certforge-system \
+  --create-namespace \
+  --set certforge.url=https://certforge.internal.example.com \
+  --set certforge.token=<your-api-token> \
+  --set-file certforge.caBundle=/path/to/ca.crt
+```
+
+### Manual
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/CertForge-LLC/certforge-issuer/main/config/crd/certforge-issuer.yaml
+kubectl apply -f https://raw.githubusercontent.com/CertForge-LLC/certforge-issuer/main/config/rbac/rbac.yaml
+
+kubectl create secret generic certforge-credentials \
+  --namespace certforge-system \
+  --from-literal=token=<your-api-token>
+
+kubectl apply -f https://raw.githubusercontent.com/CertForge-LLC/certforge-issuer/main/config/manager/deployment.yaml
+```
+
+## Configure the issuer
+
+### Namespaced issuer
+
+Use `CertForgeIssuer` to scope issuance to a single namespace:
+
+```yaml
+apiVersion: certforge.io/v1alpha1
+kind: CertForgeIssuer
+metadata:
+  name: certforge
+  namespace: default
+spec:
+  url: https://app.certgovernance.app
+  authSecretRef:
+    name: certforge-credentials
+```
+
+### Cluster-wide issuer
+
+Use `CertForgeClusterIssuer` to issue certificates across all namespaces. The credentials secret must live in the `certforge-system` namespace:
+
+```yaml
+apiVersion: certforge.io/v1alpha1
+kind: CertForgeClusterIssuer
+metadata:
+  name: certforge
+spec:
+  url: https://app.certgovernance.app
+  authSecretRef:
+    name: certforge-credentials
+```
+
+### Self-hosted with internal CA trust
+
+If CertForge presents a certificate signed by an internal CA, include the CA bundle so the controller trusts the TLS connection:
+
+```yaml
+apiVersion: certforge.io/v1alpha1
+kind: CertForgeClusterIssuer
+metadata:
+  name: certforge
+spec:
+  url: https://certforge.internal.example.com
+  authSecretRef:
+    name: certforge-credentials
+  caBundle: <base64-encoded-CA-cert>   # base64 of your CA's .crt file
+```
+
+To get the base64 value:
+
+```bash
+base64 -w 0 /path/to/ca.crt
+```
+
+Alternatively, reference a Kubernetes Secret containing the CA:
+
+```yaml
+spec:
+  url: https://certforge.internal.example.com
+  authSecretRef:
+    name: certforge-credentials
+  caBundleSecretRef:
+    name: certforge-ca
+    key: ca.crt
+```
+
+## Request a certificate
+
+Point any cert-manager `Certificate` at CertForge by changing `issuerRef`:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-service-tls
+  namespace: default
+spec:
+  secretName: my-service-tls
+  dnsNames:
+    - my-service.internal.example.com
+  issuerRef:
+    name: certforge
+    kind: CertForgeIssuer   # or CertForgeClusterIssuer
+    group: certforge.io
+```
+
+cert-manager creates a `CertificateRequest`; the issuer controller submits the CSR to CertForge; once issued the certificate is written back as a Kubernetes Secret.
+
+### Wildcard certificates
+
+Wildcard certificates work the same way — ensure your DTP permits wildcards for the domain:
+
+```yaml
+spec:
+  dnsNames:
+    - "*.internal.example.com"
+  issuerRef:
+    name: certforge
+    kind: CertForgeClusterIssuer
+    group: certforge.io
+```
+
+### Multiple SANs
+
+```yaml
+spec:
+  dnsNames:
+    - api.internal.example.com
+    - api-v2.internal.example.com
+  ipAddresses:
+    - 10.0.1.50
+  issuerRef:
+    name: certforge
+    kind: CertForgeIssuer
+    group: certforge.io
+```
+
+## How approval works
+
+The behavior depends on how your Domain Trust Profile is configured:
+
+- **Auto-approve** — the certificate is issued immediately, typically within a few seconds.
+- **Manual approval required** — the request enters the CertForge approval queue. The controller polls every 15 seconds until the request is approved or denied. The `Certificate` stays in a pending state until then.
+
+Approvers can act on requests from the CertForge dashboard under **Approvals**.
+
+## Troubleshooting
+
+If a `Certificate` stays pending, inspect the underlying `CertificateRequest`:
+
+```bash
+kubectl describe certificaterequest <name> -n <namespace>
+```
+
+| Condition | Reason | Cause |
+|-----------|--------|-------|
+| `InvalidRequest=True` | `PolicyViolation` | Domain not covered by any DTP, or wildcard not permitted — add the domain to a DTP in CertForge |
+| `Denied=True` | `Denied` | Request was manually denied in the CertForge approval queue |
+| `Ready=False` | `Pending` | Waiting for manual approval, or transient connectivity issue |
+| `Ready=False` | `Failed` | API token invalid or expired — regenerate under Settings → API Keys |
+
+Check the issuer controller logs for connectivity errors:
+
+```bash
+kubectl logs -n certforge-system deployment/certforge-issuer-controller-manager
+```
+
+**Certificate stuck pending for more than a few minutes with auto-approve DTP:**
+Check that the controller can reach CertForge — network policies or egress rules may be blocking the connection. The controller needs outbound HTTPS to the CertForge URL.
+
+**`x509: certificate signed by unknown authority`:**
+Your CertForge instance uses a CA the controller doesn't trust. Add `caBundle` or `caBundleSecretRef` to the issuer spec as shown above.
+
+**`API token invalid` in controller logs:**
+The token in the `certforge-credentials` secret has expired or been revoked. Generate a new one under **Settings → API Keys** and update the secret:
+
+```bash
+kubectl create secret generic certforge-credentials \
+  --namespace certforge-system \
+  --from-literal=token=<new-token> \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+For full controller configuration options and CRD field reference, see the [certforge-issuer guide](/guides/certforge-issuer).

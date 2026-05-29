@@ -1,6 +1,6 @@
 ---
 title: "Domain Trust Profiles"
-description: "Domain Trust Profiles define which domains get certificates, which CA signs them, who can request, and whether approval is required before issuance."
+description: "The core policy object in CertForge — defines which domains get certs, from which CA, and whether approval is required."
 ---
 
 # Domain Trust Profiles
@@ -16,10 +16,17 @@ Every certificate request is matched against a DTP before anything is issued.
 | **Domains** | Wildcard or exact domains this profile covers (e.g. `*.internal.example.com`) |
 | **Certificate Authority** | Which CA signs certificates issued under this profile |
 | **Require approval** | If enabled, all requests enter the approval queue instead of being issued immediately |
+| **Auto-approve** | Requests that match this DTP are approved automatically without human review |
 | **Allowed environments** | Optional constraint — e.g. only allow `production` or `staging` requests |
 | **Allowed requesters** | Restrict which devices or users can request under this profile |
-| **Certificate validity** | Override the default certificate lifetime |
-| **Key type** | RSA or ECDSA, and key size |
+| **Self-approval** | Whether the requester can approve their own request (disabled by default) |
+| **Required approvals** | Minimum number of distinct approvers before a request is approved (default: 1) |
+| **Mandatory approval reason** | Require approvers to select a predefined reason when approving or rejecting |
+| **Require request justification** | Require requesters to provide a justification when submitting a request |
+| **Escalation** | Warn or escalate after N hours if a request remains pending; configure escalation contacts |
+| **DNS account** | Which DNS account to use for ACME DNS-01 challenge solving for this profile |
+| **Max validity days** | Cap on certificate lifetime (internal CAs only — ACME CAs such as Let's Encrypt always cap at 90 days) |
+| **Compliance framework** | Assign a compliance framework (SOC 2, ISO 27001, PCI-DSS, HIPAA) to enforce its policy requirements on this profile |
 
 ## Domain matching
 
@@ -57,6 +64,34 @@ DTP matched → approval required?
 
 Approvers are any users with the `admin` or `operator` role in the organization, or any user explicitly granted access to the DTP.
 
+## Escalation
+
+When a request remains pending past the configured thresholds, CertForge takes the following actions:
+
+| Setting | Behavior |
+|---|---|
+| **Warn after N hours** | Sends a staleness warning to approvers |
+| **Escalate after N hours** | Notifies the configured escalation contacts in addition to approvers |
+| **Escalation contacts** | Specific users or roles to notify when escalation triggers |
+
+Escalated requests show an escalation badge on the Approvals page.
+
+## DNS account linking
+
+For ACME-backed DTPs, each profile can reference a specific DNS account to use when solving DNS-01 challenges. This allows different profiles to use different DNS provider credentials, even across zones or accounts.
+
+DNS accounts are configured in **Admin → DNS Accounts**. Once created, select the account in the DTP's DNS settings.
+
+## Max validity days
+
+When using an internal CA, you can cap the maximum certificate lifetime on the DTP. Requests for longer validity are capped at this value.
+
+ACME CAs (Let's Encrypt, ZeroSSL) always issue certificates with a maximum validity of 90 days regardless of this setting.
+
+## Compliance framework assignment
+
+Assigning a compliance framework to a DTP enforces that framework's policy requirements on all certificates issued under the profile. Active frameworks (SOC 2, ISO 27001, PCI-DSS, HIPAA) set requirements such as mandatory approval reasons and maximum certificate validity. See [Compliance](/concepts/compliance) for details.
+
 ## DTP permissions
 
 You can grant individual users access to a DTP with a specific role:
@@ -81,6 +116,10 @@ DTP-level permissions are additive on top of org-level roles.
 **Optional:**
 - Approval required (recommended for production domains)
 - Environment restrictions
+- Escalation thresholds and contacts
+- DNS account (required for ACME DNS-01)
+- Max validity days (internal CAs only)
+- Compliance framework assignment
 - Per-user DTP role grants
 
 ## Example configurations
@@ -105,6 +144,7 @@ Name: public-services
 Domains: *.corp.com
 CA: letsencrypt-acme
 Require approval: Yes
+Mandatory approval reason: Yes
 ```
 
 ### IoT devices — restricted environment
@@ -115,6 +155,7 @@ Domains: *.devices.corp.com
 CA: internal-device-ca
 Require approval: Yes
 Allowed environments: production
+Max validity days: 365
 ```
 
 ## Pending changes

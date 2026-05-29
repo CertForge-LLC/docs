@@ -1,6 +1,6 @@
 ---
 title: "Configuration Reference"
-description: "Complete config.yaml reference for CertForge Self-Hosted, including server, database, storage, TLS, SMTP, and feature flag settings with examples."
+description: "Complete config.yaml reference for CertForge Self-Hosted."
 ---
 
 CertForge is configured via a single YAML file, typically `/etc/certforge/config.yaml`. Pass it at startup with `--config /path/to/config.yaml`.
@@ -224,7 +224,7 @@ call_home:
   proxy_password: secret
 ```
 
-Controls how CertForge contacts `certforge.xyz` for license validation and version checks. See [Licensing](/concepts/licensing) for full details.
+Controls how CertForge contacts `certforge.xyz` for license validation and version checks. See [Call Home Settings](/self-hosted/call-home) for full details.
 
 | Field | Default | Description |
 |-------|---------|-------------|

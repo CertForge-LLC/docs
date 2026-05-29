@@ -1,0 +1,89 @@
+---
+title: "Backup & Restore"
+description: "Schedule automatic backups, download on-demand, and restore your CertForge data."
+---
+
+<Note>
+Backup and restore are available to **platform superusers** on self-hosted deployments. Cloud-hosted accounts are backed up automatically by CertForge — contact support to request a restore.
+</Note>
+
+CertForge stores all data in PostgreSQL. The backup tool produces a full compressed database dump that includes organizations, users, certificates, audit log, billing history, CA material, and all settings.
+
+## Scheduled backups
+
+The easiest way to protect your data is to let CertForge back itself up automatically.
+
+1. Log in as a superuser and go to **Admin → System Health**.
+2. Scroll to **Backup Schedule**.
+3. Check **Enable scheduled backups**.
+4. Choose a schedule — **Hourly**, **Daily**, or **Weekly**.
+5. Set **Keep last N backups** (default: 7). Older files are pruned automatically after each backup.
+6. Optionally set a custom **Backup directory** (defaults to `{data_path}/backups/`).
+7. Click **Save Schedule**.
+
+CertForge checks every hour whether a backup is due and runs one automatically when the interval has elapsed.
+
+## On-demand backups
+
+Two options are available under **Admin → System Health → Database**:
+
+| Action | What it does |
+|--------|-------------|
+| **Download Now** | Runs a live backup and sends the file directly to your browser. Nothing is written to disk. |
+| **Save to Disk** | Writes a backup to the configured backup directory and applies the retention policy. |
+
+## Backup history
+
+Every backup — scheduled or manual, success or failure — is recorded in the **Audit Log** with the timestamp, actor, file name, and size. Restore events are also logged.
+
+To view backup history: go to **Admin → Audit Log** and search for `backup`.
+
+## Saved backups
+
+**Admin → System Health → Saved Backups** lists all backup files currently on disk. For each file you can:
+
+- **Download** — save the file to your local machine
+- **Restore** — restore the database from this file (requires typing `RESTORE` to confirm)
+- **Delete** — remove the file from disk (the audit log entry is retained)
+
+## Restore
+
+<Warning>
+Restoring overwrites all current data. Schedule a maintenance window and inform your users before proceeding.
+</Warning>
+
+### From a saved backup
+
+1. Go to **Admin → System Health → Saved Backups**.
+2. Click **↺ Restore** next to the file you want.
+3. Type `RESTORE` in the confirmation field and click the button.
+4. **Restart the service** when prompted — this reloads in-memory state from the restored database.
+
+### From an uploaded file
+
+Use this to restore from a backup file you downloaded previously, or from a backup taken on a different server.
+
+1. Go to **Admin → System Health → Restore from Upload**.
+2. Select the `.sql.gz` backup file from your local machine.
+3. Type `RESTORE` in the confirmation field and submit.
+4. **Restart the service** after completion.
+
+## After a restore
+
+After any restore, restart the CertForge service. This is required to clear cached state — settings, trust context, and active sessions are held in memory and will reflect the pre-restore state until the process restarts.
+
+Users will be signed out and will need to log in again after the restart.
+
+## Backup file format
+
+Backup files are named `certforge-YYYY-MM-DDTHHMMSSZ.sql.gz` — plain SQL, gzip compressed. They include `DROP TABLE IF EXISTS` statements so they can be restored cleanly without manual cleanup.
+
+You can inspect any backup without restoring it:
+
+```bash
+# Verify the file is intact
+gzip -t certforge-2026-05-22T150405Z.sql.gz && echo "OK"
+
+# Preview the SQL
+zcat certforge-2026-05-22T150405Z.sql.gz | head -30
+```

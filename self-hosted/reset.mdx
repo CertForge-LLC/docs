@@ -1,0 +1,53 @@
+---
+title: Reset to Factory Defaults
+description: Wipe all data and start fresh with a clean CertForge installation.
+---
+
+Resetting CertForge removes all issued certificates, CA keys, users, and the SQLite database. Your configuration file (`/etc/certforge/trust.yaml`) is preserved unless you explicitly delete it.
+
+## Reset data only (keep config)
+
+```bash
+# Stop the process
+pkill certforge 2>/dev/null; true
+
+# Delete everything in the data directory
+sudo rm -rf /var/lib/certforge
+
+# Recreate with correct ownership so certforge can write to it
+sudo mkdir -p /var/lib/certforge
+sudo chown $USER /var/lib/certforge
+
+# Start fresh — first-run wizard appears on next visit
+certforge --config /etc/certforge/trust.yaml
+```
+
+On the next start, CertForge will:
+- Create a new SQLite database
+- Generate a new internal CA
+- Drop you into the first-run superuser setup wizard
+
+## Full reset (wipe config too)
+
+```bash
+pkill certforge 2>/dev/null; true
+sudo rm -rf /var/lib/certforge
+sudo rm -f /etc/certforge/trust.yaml
+```
+
+Then re-run the installer or recreate the config manually from the [example](https://github.com/CertForge-LLC/certforge-releases/blob/main/trust.example.yaml).
+
+## PostgreSQL installations
+
+If you configured PostgreSQL instead of SQLite, drop and recreate the database:
+
+```bash
+psql -U postgres -c "DROP DATABASE IF EXISTS certforge;"
+psql -U postgres -c "CREATE DATABASE certforge OWNER certforge;"
+```
+
+Then restart CertForge — the schema is recreated automatically on startup.
+
+<Warning>
+  This is irreversible. All issued certificates, audit logs, users, and CA keys will be permanently deleted. Take a backup first if you may need to recover anything.
+</Warning>

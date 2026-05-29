@@ -1,6 +1,6 @@
 ---
 title: "What is CertForge?"
-description: "CertForge is a certificate governance platform that centralizes policy, approvals, and audit for ACME and internal CAs across your organization."
+description: "Certificate governance for organizations that need to know what's trusted on their network and why."
 ---
 
 CertForge is a certificate governance platform that gives security and operations teams a single place to define which domains can receive certificates, who must approve them, which CA issues them, and a complete audit trail of every issuance, renewal, and download.
@@ -32,5 +32,22 @@ CertForge is the governance layer that sits in front of your CAs — public ACME
 - **Approval workflows** — human-in-the-loop approval with full audit trail; SOC 2 and ISO 27001 compatible
 - **ACME endpoint** — drop-in replacement for Let's Encrypt clients; works with certbot, acme.sh, and any RFC 8555 client
 - **Internal CA** — built-in CA for internal domains; no external CA required for private PKI
-- **Alerts** — configurable rules for expiring certs and stale approval queues, with email/webhook notifications
-- **Audit log** — immutable record of every certificate, approval, and admin action
+- **Kubernetes / cert-manager** — native cert-manager external issuer (`certforge-issuer`) routes cluster certificate requests through CertForge policy; existing cert-manager `Certificate` manifests work unchanged, policy is enforced transparently
+- **REST API** — full programmatic access for CI/CD pipelines, custom tooling, and integrations; token-authenticated
+- **Alerts** — configurable rules for expiring certs and stale approval queues, with webhook/Slack/Teams/Webex notifications
+- **Notifications** — org-level notification channels: Webhook, Slack, Microsoft Teams, Webex; used for alert delivery, approval requests, and approval outcomes
+- **SSO / OIDC** — integrate with any OIDC provider (Keycloak, Okta, Azure AD, etc.) for single sign-on
+- **Compliance frameworks** — assign SOC 2, ISO 27001, PCI-DSS, or HIPAA to enforce policy requirements and generate audit evidence
+- **AI risk assessment** — automatic risk scoring on approval requests with reasoning, stored in the audit trail
+- **DNS account management** — configure DNS provider credentials in the UI (Cloudflare, RFC 2136); linked per Domain Trust Profile for automated ACME DNS-01
+- **SIEM integration** — forward all audit events to your SIEM via HTTPS webhook or UDP syslog in JSON or CEF format (Enterprise tier)
+- **Audit log** — immutable hash-chained record of every certificate, approval, and admin action; verifiable at Compliance → Audit Chain
+- **Tamper-evident audit chain** — every approval decision is cryptographically linked in a hash chain: each record's SHA-256 hash covers the record content plus the previous record's hash. This proves to auditors that no certificate was issued without authorization and that the log has not been altered. Chain integrity is verifiable on demand from the UI.
+
+## Trust & security
+
+CertForge is built for security-sensitive environments. The platform enforces policy before any certificate is issued, maintains a cryptographically protected audit trail, and supports MFA, SSO, and org-level isolation out of the box.
+
+<Card title="Security model" icon="shield-halved" href="/security">
+  Authentication, authorization, audit trail integrity, encryption, and responsible disclosure — full security documentation for security-conscious buyers and compliance teams.
+</Card>

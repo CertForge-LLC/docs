@@ -1,9 +1,9 @@
 ---
 title: "ACME Setup"
-description: "Connect CertForge to Let's Encrypt, ZeroSSL, or any ACME-compatible CA to issue publicly-trusted TLS certificates through your governance layer."
+description: "Connect CertForge to Let's Encrypt or ZeroSSL for publicly-trusted certificates."
 ---
 
-CertForge acts as an ACME client on your behalf. Configure an ACME provider once, then any device or Domain Trust Profile can request publicly-trusted certificates through CertForge's approval and policy layer.
+CertForge acts as an ACME client on your behalf. Configure an ACME provider once, then any Domain Trust Profile can request publicly-trusted certificates through CertForge's approval and policy layer.
 
 ## Add an ACME CA
 
@@ -25,63 +25,23 @@ Use Let's Encrypt's staging environment (`https://acme-staging-v02.api.letsencry
 
 ## Configure DNS validation
 
-ACME requires proving you control the domain. CertForge uses **DNS-01 challenge solving**, which works for wildcard certs and doesn't require an open HTTP port.
+ACME requires proving you control the domain. CertForge uses **DNS-01 challenge solving**, which works for wildcard certs and does not require an open HTTP port. DNS configuration is done entirely in the UI — there is no `config.yaml` DNS solver configuration.
 
-### Cloudflare
+### Step 1: Create a DNS account
 
-In `config.yaml`:
+1. Go to **Admin → DNS Accounts → New**
+2. Select your DNS provider (Cloudflare or RFC 2136/TSIG)
+3. Enter the required credentials (see [DNS Validation →](/guides/dns-validation) for field details)
+4. Save and verify the account shows a connected status
 
-```yaml
-dns:
-  solver: cloudflare
-  cloudflare:
-    api_token: YOUR_API_TOKEN
-```
+### Step 2: Link the DNS account to a DTP
 
-Create a Cloudflare API token with `Zone:DNS:Edit` permission scoped to your zone(s). Set the token via environment variable:
+1. Go to **Admin → Domain Trust Profiles**
+2. Edit the profile that uses your ACME CA
+3. Under **DNS Settings**, select the DNS account you created
+4. Save
 
-```bash
-export CLOUDFLARE_API_TOKEN=your-token
-```
-
-### Route 53 (AWS)
-
-```yaml
-dns:
-  solver: route53
-  route53:
-    region: us-east-1
-    hosted_zone_id: Z1234567890
-```
-
-Attach this IAM policy to your CertForge instance role or user:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["route53:ChangeResourceRecordSets", "route53:ListResourceRecordSets"],
-      "Resource": "arn:aws:route53:::hostedzone/Z1234567890"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "route53:GetChange",
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-### Manual (any DNS provider)
-
-```yaml
-dns:
-  solver: manual
-```
-
-When a certificate is requested, CertForge displays the required TXT record. You (or your automation) add the record, then confirm in the dashboard. The ACME challenge is submitted once confirmed.
+CertForge will use that account's credentials to place and remove the `_acme-challenge` TXT record automatically during issuance.
 
 ## Create a Domain Trust Profile for ACME
 
@@ -89,12 +49,13 @@ When a certificate is requested, CertForge displays the required TXT record. You
 2. Set:
    - Domains: `*.corp.com` (or your public domain)
    - CA: select the ACME CA you created
+   - DNS account: select the DNS account configured above
    - Require approval: recommended for production domains
 3. Save
 
 ## Test an issuance
 
-Using certbot pointed at your CertForge dashboard:
+Using certbot pointed at your CertForge ACME endpoint:
 
 ```bash
 certbot certonly \

@@ -1,6 +1,6 @@
 ---
 title: "Approval Workflow"
-description: "Enable approval on a Domain Trust Profile, review pending certificate requests, assign approvers, and manage the queue from the CertForge dashboard."
+description: "Configure and manage the certificate approval process."
 ---
 
 The approval workflow is CertForge's governance layer. When enabled on a Domain Trust Profile, every certificate request is queued for human review before any certificate is issued.
@@ -18,7 +18,7 @@ From this point, all new certificate requests under this profile enter a pending
 
 **Approvals** in the navigation shows all pending, approved, and rejected requests.
 
-Each request shows:
+Each request shows a **pipeline step visualization** — a horizontal progress indicator that shows which stage the request is at: Submitted → Pending → Approved/Rejected → Certificate Issued. Escalated requests show an escalation badge next to the status.
 
 | Field | Description |
 |---|---|
@@ -27,13 +27,51 @@ Each request shows:
 | Trust Profile | Which DTP matched |
 | Environment | Production, staging, dev |
 | Justification | Text the requester provided |
+| AI risk score | Risk level from the AI engine (if enabled) |
 | Requested at | Timestamp |
 
 ## Taking action
 
 Click **Approve** to issue the certificate, or **Reject** to decline. When rejecting, provide a reason — it is shown to the requester and recorded permanently in the audit trail.
 
-The requester is notified by email if SMTP is configured.
+If **Mandatory approval reason** is enabled on the DTP (or by the active compliance framework), you must select a reason from the dropdown before the form can be submitted.
+
+## AI risk assessment
+
+When the AI engine is enabled by your platform administrator, each incoming request is scored automatically. The score (low / medium / high) and the reasoning behind it appear on the request detail panel. The AI score does not block approval — it is advisory information to help approvers prioritize the queue.
+
+To enable the AI engine, contact your platform administrator or see the AI Setup guide.
+
+## Predefined approval reasons
+
+Approval reasons give the approval and request workflows a controlled vocabulary. They are configured in **Admin → Approval Reasons**.
+
+There are two reason types:
+
+| Type | When it appears |
+|---|---|
+| `approval` | Shown to approvers in the approve/reject form |
+| `requested` | Shown to requesters in the certificate request form |
+
+### Configuring reasons
+
+1. Go to **Admin → Approval Reasons → Add reason**
+2. Set:
+   - **Label** — text shown in the dropdown, e.g. `Security incident response`
+   - **Type** — `approval` or `requested`
+   - **Sort order** — integer controlling display order; lower values appear first
+   - **Active** — inactive reasons are hidden from dropdowns but are not deleted
+
+To retire a reason without losing historical records, set it to inactive rather than deleting it. The reason text is stored immutably in each decision record.
+
+### Enabling mandatory approval reason
+
+The requirement to select a reason can be enforced in two ways:
+
+- **Per DTP:** Edit the DTP → Access Control section → enable **Require approval reason**. Applies only to requests matched to that DTP.
+- **Via compliance framework:** Go to the Compliance page and assign a framework (SOC 2, ISO 27001, PCI-DSS, or HIPAA). All four frameworks set mandatory approval reason for every DTP in the org.
+
+When mandatory reason is active and no configured reasons of the appropriate type exist, a free-text field is shown instead of a dropdown.
 
 ## Who can approve
 
@@ -45,21 +83,15 @@ The requester is notified by email if SMTP is configured.
 
 ## Justification requirement
 
-When submitting a request that requires approval, the requester must enter a **justification** — a plain-text explanation of why the certificate is needed. This is mandatory, stored permanently in the audit trail, and visible to approvers.
+When **Require request justification** is enabled on a DTP, the requester must enter a justification when submitting the request. This is stored permanently in the audit trail and is visible to all approvers.
 
 ## Audit chain
 
 Every approval action (submit, approve, reject, void) is written to an append-only hash-chained ledger. The chain is verified on every startup. Tampering with any past record breaks the chain and prevents CertForge from starting — making the approval history tamper-evident.
 
-## Email notifications
+## Notifications
 
-If SMTP is configured:
-
-- **On submission:** Approvers receive an email with the request details and a direct link to approve or reject
-- **On approve / reject:** The requester receives the outcome and reason
-- **Escalation:** If a request stays pending past the escalation threshold, approvers are reminded
-
-Configure SMTP in **Admin → Settings → Notifications**. See [Email Setup →](/guides/email-setup).
+When notification channels are configured, approvers are notified of new pending requests and requesters receive outcomes. Configure channels in **Admin → Settings → Notifications**. See [Notifications →](/guides/notifications).
 
 ## Void
 
@@ -93,4 +125,4 @@ Response:
 }
 ```
 
-Poll the status or rely on the email notification. The certificate is available for download once approved.
+Poll the status or rely on the notification. The certificate is available for download once approved.

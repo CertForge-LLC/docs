@@ -1,6 +1,6 @@
 ---
 title: "Internal CA"
-description: "Create a private root or intermediate Certificate Authority in CertForge to issue trusted certificates for internal domains, mTLS, and air-gapped networks."
+description: "Set up a private Certificate Authority for internal domains."
 ---
 
 An internal CA lets you issue certificates for internal domains (`.internal`, `.corp`, private IP addresses) without depending on an external provider. Certificates are trusted by any machine that has your root CA installed in its trust store.
@@ -68,10 +68,10 @@ Using an intermediate keeps your root CA private — if the intermediate is ever
 ## Issue your first internal certificate
 
 ### Via dashboard
-1. Go to **Devices → Enroll New**
-2. Fill in device name and domains
+1. Go to **Certificates → Enroll New**
+2. Fill in name and domains
 3. Submit — the request enters the approval queue (or is issued immediately if approval is off)
-4. Download the certificate from **Devices → [device] → Download**
+4. Download the certificate from **Certificates → [entry] → Download**
 
 ### Via ACME client
 Point any ACME client at your CertForge ACME directory:

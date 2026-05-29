@@ -1,6 +1,6 @@
 ---
 title: "Installation"
-description: "Step-by-step installation guide for production CertForge Self-Hosted deployments on Linux — binary download, user setup, PostgreSQL, and TLS."
+description: "Full installation walkthrough for production CertForge Self-Hosted deployments."
 ---
 
 ## Download
@@ -17,9 +17,9 @@ Download the binary for your platform from the [releases page](https://github.co
 
 ```bash
 # Linux amd64
-curl -Lo /usr/local/bin/certforge \
+sudo curl -Lo /usr/local/bin/certforge \
   https://github.com/certforge/self-hosted/releases/latest/download/certforge-linux-amd64
-chmod +x /usr/local/bin/certforge
+sudo chmod +x /usr/local/bin/certforge
 certforge --version
 ```
 
@@ -30,7 +30,7 @@ certforge --version
 Running as root is not recommended. Create a system user:
 
 ```bash
-useradd --system --no-create-home --shell /usr/sbin/nologin certforge
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin certforge
 ```
 
 ---
@@ -39,17 +39,17 @@ useradd --system --no-create-home --shell /usr/sbin/nologin certforge
 
 ```bash
 # Application data — persistent across upgrades
-mkdir -p /opt/certforge/data
+sudo mkdir -p /opt/certforge/data
 
 # Config
-mkdir -p /etc/certforge
+sudo mkdir -p /etc/certforge
 
 # Logs (optional — systemd journal is preferred)
-mkdir -p /var/log/certforge
+sudo mkdir -p /var/log/certforge
 
 # Set ownership
-chown -R certforge:certforge /opt/certforge /var/log/certforge
-chmod 750 /opt/certforge/data
+sudo chown -R certforge:certforge /opt/certforge /var/log/certforge
+sudo chmod 750 /opt/certforge/data
 ```
 
 ---
@@ -57,9 +57,9 @@ chmod 750 /opt/certforge/data
 ## Install the license file
 
 ```bash
-cp license.jwt /opt/certforge/data/license.jwt
-chown certforge:certforge /opt/certforge/data/license.jwt
-chmod 640 /opt/certforge/data/license.jwt
+sudo cp license.jwt /opt/certforge/data/license.jwt
+sudo chown certforge:certforge /opt/certforge/data/license.jwt
+sudo chmod 640 /opt/certforge/data/license.jwt
 ```
 
 ---
@@ -108,8 +108,8 @@ acme:
 
 Set permissions:
 ```bash
-chown root:certforge /etc/certforge/config.yaml
-chmod 640 /etc/certforge/config.yaml
+sudo chown root:certforge /etc/certforge/config.yaml
+sudo chmod 640 /etc/certforge/config.yaml
 ```
 
 ---
@@ -126,14 +126,14 @@ Open the required ports:
 
 ```bash
 # Dashboard
-ufw allow 8080/tcp comment "CertForge dashboard"
+sudo ufw allow 8080/tcp comment "CertForge dashboard"
 
 # mTLS ACME API (restrict to internal networks)
-ufw allow from 10.0.0.0/8 to any port 8443 proto tcp comment "CertForge ACME API"
-ufw allow from 192.168.0.0/16 to any port 8443 proto tcp comment "CertForge ACME API"
+sudo ufw allow from 10.0.0.0/8 to any port 8443 proto tcp comment "CertForge ACME API"
+sudo ufw allow from 192.168.0.0/16 to any port 8443 proto tcp comment "CertForge ACME API"
 
 # HTTP-01 ACME validation (only if using HTTP-01)
-# ufw allow 80/tcp comment "ACME HTTP-01"
+# sudo ufw allow 80/tcp comment "ACME HTTP-01"
 ```
 
 ---
@@ -142,14 +142,18 @@ ufw allow from 192.168.0.0/16 to any port 8443 proto tcp comment "CertForge ACME
 
 ```bash
 # Start via systemd
-systemctl start certforge
-systemctl status certforge
+sudo systemctl start certforge
+sudo systemctl status certforge
 
 # Or run directly for testing
 certforge --config /etc/certforge/config.yaml
 ```
 
-Open the dashboard at `http://your-server:8080`. You will be prompted to create the initial superuser account on the first visit.
+Open the dashboard at `https://your-server:8080`. You will be prompted to create the initial superuser account on the first visit.
+
+<Note>
+  The server generates a self-signed TLS certificate on first run. Your browser will show a security warning — click **Advanced → Proceed** to continue. To permanently trust the certificate, import `./data/cas/internal-ca.crt` (or `/var/lib/certforge/cas/internal-ca.crt`) into your browser or OS certificate store.
+</Note>
 
 ---
 
@@ -160,10 +164,10 @@ Open the dashboard at `http://your-server:8080`. You will be prompted to create 
 systemctl is-active certforge
 
 # Check license status
-curl -s http://localhost:8080/api/license | jq .
+curl -sk https://localhost:8080/api/license | jq .
 
 # Check ACME directory is reachable
-curl -s http://localhost:8443/acme/v2/directory | jq .meta
+curl -sk https://localhost:8443/acme/v2/directory | jq .meta
 ```
 
 ---

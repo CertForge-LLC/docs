@@ -1,6 +1,6 @@
 ---
 title: "Alerts"
-description: "Configure CertForge alert rules to notify teams about expiring certificates, stale pending approvals, and policy violations across Trust Profiles."
+description: "Get notified when certificates are expiring or approvals are stuck."
 ---
 
 CertForge alerts notify your team when conditions that need attention occur — expiring certificates, pending approvals that have gone stale, or policy violations.
@@ -53,10 +53,10 @@ Configure destinations in **Admin → Settings → Notifications**:
 
 | Channel | Notes |
 |---|---|
-| **Email (SMTP)** | Sent to the org-wide address(es) set in Admin → Settings |
-| **Webhook** | POST JSON payload to any URL |
+| **Webhook** | POST JSON payload to any HTTPS URL |
 | **Slack** | Incoming Webhook URL |
-| **PagerDuty** | Integration key |
+| **Microsoft Teams** | Incoming Webhook URL |
+| **Webex** | Bot Token and Room ID |
 
 <Note>
 Use the **Send Test** button after configuring a channel to confirm delivery before relying on it for real alerts.
@@ -64,7 +64,7 @@ Use the **Send Test** button after configuring a channel to confirm delivery bef
 
 ## Personal alert subscriptions
 
-Users can subscribe to specific rules to receive personal email notifications. Go to **Profile → Alert Subscriptions** and check the rules you want to follow.
+Users can subscribe to specific rules to receive personal notifications. Go to **Profile → Alert Subscriptions** and check the rules you want to follow.
 
 Requires an email address on your account and SMTP configured by your admin.
 

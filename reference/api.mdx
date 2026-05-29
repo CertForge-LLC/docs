@@ -1,6 +1,6 @@
 ---
 title: "API Reference"
-description: "REST API reference for CertForge — authenticate with API keys to manage certificates, Domain Trust Profiles, approvals, devices, and audit logs."
+description: "REST API for programmatic access to CertForge certificates, approvals, and audit data."
 ---
 
 CertForge exposes a REST API for programmatic management. All endpoints require an **API key**.
@@ -161,4 +161,4 @@ The device enrollment API is separate from the REST API and uses mutual TLS:
 POST https://your-host:8443/v1/enroll
 ```
 
-Requires a client certificate in the TLS handshake. See the [mTLS guide](/concepts/devices) for details.
+Requires a client certificate in the TLS handshake. See the [Certificates guide](/concepts/certificates) for details.

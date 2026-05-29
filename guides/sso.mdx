@@ -1,0 +1,71 @@
+---
+title: "SSO / OIDC Setup"
+description: "Configure single sign-on with any OIDC-compatible identity provider."
+---
+
+CertForge supports single sign-on via OpenID Connect (OIDC). Once configured, users can log in with your organization's identity provider instead of (or in addition to) a local password. Any standards-compliant OIDC provider works — Keycloak, Okta, Azure AD, Google Workspace, Auth0, and others.
+
+## Configure OIDC
+
+1. Go to **Admin → Settings → SSO**
+2. Toggle **Enable SSO** on
+3. Fill in the provider details:
+
+| Field | Description |
+|---|---|
+| **Issuer URL** | The OIDC discovery URL base, e.g. `https://keycloak.corp.com/realms/certforge`. CertForge appends `/.well-known/openid-configuration` to discover endpoints automatically. |
+| **Client ID** | The client ID from your IdP's app registration |
+| **Client Secret** | The client secret from your IdP's app registration |
+| **Redirect URI** | Set this value in your IdP: `https://<your-certforge-domain>/oidc/callback` |
+
+4. Save
+
+After saving, the login page shows a **Sign in with SSO** button. Password-based login continues to work unless you disable it in the settings.
+
+## Provider-specific notes
+
+### Keycloak
+
+- Create a new client in the target realm with **Client authentication** enabled
+- Set the **Valid redirect URIs** to `https://<your-certforge-domain>/oidc/callback`
+- Copy the **Client ID** and the secret from the Credentials tab
+- The Issuer URL format is: `https://<keycloak-host>/realms/<realm-name>`
+
+### Okta
+
+- Create a new **OIDC Web Application** in the Okta Admin Console
+- Add `https://<your-certforge-domain>/oidc/callback` to the Sign-in redirect URIs
+- Copy the **Client ID** and **Client secret**
+- The Issuer URL is your Okta org URL: `https://<org>.okta.com`
+
+### Azure AD / Entra ID
+
+- Register a new app in Azure Portal → App registrations
+- Add `https://<your-certforge-domain>/oidc/callback` as a redirect URI (type: Web)
+- Create a client secret under Certificates & secrets
+- The Issuer URL is: `https://login.microsoftonline.com/<tenant-id>/v2.0`
+
+## Test SSO login
+
+1. Open the CertForge login page in a private/incognito window
+2. Click **Sign in with SSO**
+3. Complete authentication with your IdP
+4. Confirm you land on the CertForge dashboard
+
+If the login fails, check the browser URL for an error parameter. Common issues:
+
+| Error | Cause |
+|---|---|
+| `redirect_uri_mismatch` | The redirect URI in CertForge does not match what is registered in the IdP |
+| `invalid_client` | Client ID or secret is incorrect |
+| `issuer mismatch` | The Issuer URL does not match the `iss` claim in the IdP's token |
+
+## User provisioning
+
+Users are provisioned on first SSO login. The email address from the IdP token is used as the user's identity. If the email domain matches the org's configured email domain, the user is placed in that org automatically.
+
+New SSO users receive the **viewer** role by default. An org admin can promote them to operator or admin after their first login.
+
+## Disabling password login
+
+To enforce SSO-only access, go to **Admin → Settings → SSO** and enable **Require SSO**. Users without an SSO login will be unable to access the org. Platform superuser accounts are not affected.

@@ -1,0 +1,177 @@
+---
+title: "Security Model"
+description: "How CertForge protects certificate issuance, audit records, and your infrastructure."
+---
+
+CertForge is designed from the ground up for environments where certificate issuance is a security control — not a convenience. Whether you run the self-hosted binary on your own infrastructure or use the managed cloud, the security model is the same: strict access control, cryptographically protected audit records, and policy enforcement before any certificate is issued.
+
+<Info>
+  Data processed by CertForge never transits third-party services. The self-hosted deployment runs entirely within your network. The managed cloud is operated solely by CertForge.
+</Info>
+
+## Security highlights
+
+<CardGroup cols={3}>
+  <Card title="Hash-chained audit trail" icon="link">
+    Every action is recorded in an append-only log where each record's SHA-256 hash covers the record content plus the previous hash — retroactive tampering is detectable on demand.
+  </Card>
+  <Card title="Policy before issuance" icon="shield-check">
+    No certificate is issued without satisfying the Domain Trust Profile: required approvers, self-approval prevention, wildcard restrictions, max validity, and mandatory reason.
+  </Card>
+  <Card title="Org-level isolation" icon="building">
+    Each organization sees only its own DTPs, certificates, approvals, and audit records. There is no cross-org data leakage by design.
+  </Card>
+  <Card title="MFA + SSO" icon="key">
+    TOTP-based MFA and SSO via any OIDC provider (Azure AD, Google Workspace, Okta, Keycloak). Both can be enforced at the org level.
+  </Card>
+  <Card title="Encrypted at rest" icon="lock">
+    Certificates and private keys are stored encrypted. Private keys are never transmitted unencrypted.
+  </Card>
+  <Card title="TLS 1.2+ in transit" icon="arrow-right-arrow-left">
+    All communication uses TLS 1.2 or higher. mTLS is available for API clients that require mutual authentication.
+  </Card>
+</CardGroup>
+
+---
+
+## Authentication & sessions
+
+CertForge supports two authentication paths:
+
+**Local accounts**
+- Password-based login with TOTP multi-factor authentication
+- Sessions use HttpOnly, Secure, SameSite=Lax cookies
+- Sessions are invalidated immediately on password change
+
+**SSO / OIDC**
+- Supports any standards-compliant OIDC provider: Azure AD, Google Workspace, Okta, Keycloak, and others
+- JWTs validated against the provider's JWKS endpoint on each session
+- SSO can be enforced org-wide — local password login is disabled for SSO-enrolled users
+- See [SSO setup guide](/guides/sso) for configuration details
+
+---
+
+## Authorization
+
+CertForge uses role-based access control with four roles:
+
+| Role | Scope | Capabilities |
+|---|---|---|
+| **Platform Admin** | Instance-wide | Full access: orgs, users, global config, audit log |
+| **Org Admin** | Single org | Manage DTPs, members, notifications, org config |
+| **Approver** | Single org | Review and decide on certificate requests |
+| **Requester** | Single org | Submit certificate requests; no approval rights |
+
+**Org isolation** — users belong to one or more organizations. Each org's DTPs, certificates, approvals, and audit records are fully isolated. An org admin cannot see or affect another org's data.
+
+**Per-DTP controls** — each Domain Trust Profile enforces its own policy:
+- Minimum number of required approvers
+- Self-approval prevention (the requester cannot be an approver)
+- Mandatory reason field on every request
+- Auto-void TTL (pending requests expire automatically after a configured period)
+- Wildcard restrictions and maximum certificate validity
+
+---
+
+## Audit trail
+
+The audit trail is CertForge's primary accountability mechanism.
+
+**What is recorded**
+
+Every action generates an audit record:
+- Certificate request, approval, denial, revocation, download
+- Configuration changes (DTP create/update/delete, org settings, user role changes)
+- Login, failed login, logout
+- API token create/revoke
+- Compliance framework assignments
+
+**Hash chain integrity**
+
+Each audit record contains a SHA-256 hash computed over:
+1. The record's own content (action, actor, timestamp, metadata)
+2. The SHA-256 hash of the immediately preceding record
+
+This produces a chain where any retroactive modification — even to a single field in a past record — invalidates every hash from that record forward. The chain can be verified on demand from the UI at **Compliance → Audit Chain**.
+
+This design satisfies NIST 800-53 AU-9 (audit information protection) and AU-10 (non-repudiation).
+
+**Export**
+
+The audit log is exportable in CSV and JSON from the Compliance page. Exports include all fields and hashes so chain integrity can be verified offline.
+
+**SIEM forwarding**
+
+For Enterprise deployments, all audit events can be forwarded in real time to your SIEM via HTTPS webhook or UDP syslog in JSON or CEF format. See [SIEM integration guide](/guides/siem).
+
+---
+
+## Encryption
+
+| Layer | Detail |
+|---|---|
+| In transit | TLS 1.2+ for all HTTP traffic; mTLS available for API clients |
+| At rest | Certificates and private keys encrypted at rest in the database |
+| Key generation | Private keys generated server-side; never transmitted unencrypted |
+| API tokens | Stored as hashed values; plaintext shown only once at creation |
+
+---
+
+## Certificate issuance security
+
+CertForge enforces policy at issuance time — the CA is not contacted until all policy requirements are met.
+
+- **No bypass path.** Certificate issuance — including via ACME and the cert-manager external issuer — runs through the same DTP policy engine. There is no way to issue a certificate that bypasses approval requirements.
+- **Private keys.** For certificates where CertForge generates the key pair, the private key is generated server-side and stored encrypted. It is never transmitted unencrypted.
+- **ACME.** CertForge acts as the ACME client on behalf of the requester. The requester's ACME credentials are scoped to domains defined in the DTP.
+- **Max validity enforcement.** DTPs can enforce a maximum certificate validity, including the 47-day maximum required by upcoming CA/Browser Forum requirements.
+- **Wildcard restrictions.** DTPs can prohibit wildcard certificates entirely, regardless of what the CA would permit.
+
+---
+
+## Infrastructure (self-hosted)
+
+When running self-hosted, the security posture of the deployment is your responsibility. Recommended baseline:
+
+- Run CertForge as a non-root system user (`certforge`)
+- Place a TLS-terminating reverse proxy (nginx, Caddy, Traefik) in front of the binary
+- Restrict database access to localhost or a private network
+- Enable audit log forwarding to a SIEM so the audit trail is preserved off-host
+- Follow the [backup and restore guide](/guides/backup-restore) to ensure audit records survive host failure
+
+For managed cloud deployments, CertForge operates the infrastructure including patching, monitoring, and backup.
+
+---
+
+## Compliance posture
+
+| Item | Status |
+|---|---|
+| SOC 2 Type II | Audit in progress |
+| NIST 800-53 AU-9, AU-10 | Addressed by hash-chained audit trail |
+| CA/B Forum 47-day max validity | Supported via DTP max validity enforcement |
+| GDPR | Data residency options available for self-hosted and EU-region managed cloud |
+
+---
+
+## Responsible disclosure
+
+CertForge takes security vulnerabilities seriously. If you discover a security issue, please report it privately before public disclosure.
+
+**Contact:** security@certforge.xyz
+
+**What to include in your report:**
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Your contact information (for follow-up and credit)
+
+**Our commitments:**
+- Acknowledge receipt within **24 hours**
+- Resolve critical vulnerabilities within **7 days**
+- Resolve non-critical vulnerabilities within **30 days**
+- Keep you informed of progress throughout
+- Credit you in release notes if you wish
+- Not pursue legal action against good-faith security researchers
+
+CVEs will be requested for significant vulnerabilities. See [SECURITY.md](https://github.com/CertForge-LLC/self-hosted/blob/main/SECURITY.md) for the full policy.

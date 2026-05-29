@@ -1,0 +1,288 @@
+---
+title: "certforge-issuer Reference"
+description: "Configuration reference, CRD schema, Helm values, and operational guide for the certforge-issuer controller."
+---
+
+`certforge-issuer` is the cert-manager [external issuer](https://cert-manager.io/docs/contributing/external-issuers/) controller that bridges Kubernetes `CertificateRequest` objects to the CertForge API. It runs as a Deployment in your cluster and watches for `CertificateRequest` resources directed at `CertForgeIssuer` or `CertForgeClusterIssuer` objects.
+
+For installation and quick-start usage, see the [cert-manager Integration guide](/guides/cert-manager).
+
+## Version compatibility
+
+| certforge-issuer | cert-manager | Kubernetes | CertForge API |
+|-----------------|-------------|-----------|---------------|
+| v0.3.x          | v1.14+      | 1.26+     | v1            |
+| v0.2.x          | v1.12+      | 1.24+     | v1            |
+| v0.1.x          | v1.10+      | 1.22+     | v1            |
+
+Always use the latest patch release for your minor version. Run `helm search repo certforge-issuer --versions` to list available releases.
+
+## Helm chart values
+
+Install or upgrade with `helm upgrade --install`:
+
+```bash
+helm upgrade --install certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+  --namespace certforge-system \
+  --create-namespace \
+  --values values.yaml
+```
+
+### Full values reference
+
+```yaml
+certforge:
+  # URL of your CertForge instance (required)
+  url: https://app.certgovernance.app
+
+  # API token for authentication (required)
+  # Stored as a Kubernetes Secret; use token or tokenSecretRef, not both.
+  token: ""
+
+  # Reference an existing Secret instead of providing the token inline
+  tokenSecretRef:
+    name: ""   # secret name
+    key: token # key within the secret
+
+  # PEM-encoded CA certificate bundle for TLS verification.
+  # Set when CertForge uses an internal or self-signed CA.
+  caBundle: ""
+
+  # Reference a Secret containing the CA bundle instead of inlining it
+  caBundleSecretRef:
+    name: ""
+    key: ca.crt
+
+  # How often (seconds) the controller polls CertForge for pending request status
+  pollIntervalSeconds: 15
+
+  # Request timeout for CertForge API calls
+  requestTimeoutSeconds: 30
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/certforge/certforge-issuer
+  tag: ""        # defaults to chart appVersion
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Node selector, tolerations, and affinity for the controller pod
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Leader election — enable when running multiple replicas
+leaderElection:
+  enabled: true
+  namespace: certforge-system
+
+# Prometheus metrics endpoint
+metrics:
+  enabled: true
+  port: 8080
+  serviceMonitor:
+    enabled: false   # set true if you have the Prometheus Operator installed
+    interval: 30s
+
+# Log level: debug | info | warn | error
+logLevel: info
+```
+
+## CRD reference
+
+### CertForgeIssuer
+
+Namespaced resource. Issues certificates only for `CertificateRequest` objects in the same namespace.
+
+```yaml
+apiVersion: certforge.io/v1alpha1
+kind: CertForgeIssuer
+metadata:
+  name: certforge
+  namespace: default
+spec:
+  # URL of the CertForge instance (required)
+  url: https://app.certgovernance.app
+
+  # Reference to a Secret containing the API token (required)
+  authSecretRef:
+    name: certforge-credentials   # must be in the same namespace as this issuer
+    key: token                    # optional, defaults to "token"
+
+  # PEM CA bundle for TLS verification (optional)
+  caBundle: <base64-encoded-PEM>
+
+  # Reference a Secret for the CA bundle (optional, alternative to caBundle)
+  caBundleSecretRef:
+    name: certforge-ca
+    key: ca.crt
+
+  # Override poll interval for this issuer (optional)
+  pollIntervalSeconds: 15
+```
+
+**Status conditions:**
+
+| Condition | Status | Meaning |
+|-----------|--------|---------|
+| `Ready` | `True` | Issuer connected to CertForge and ready to sign |
+| `Ready` | `False` | Cannot reach CertForge — check URL, token, and network |
+
+Check issuer status:
+
+```bash
+kubectl get certforgeissuer certforge -n default -o yaml
+```
+
+### CertForgeClusterIssuer
+
+Cluster-scoped resource. Issues certificates for `CertificateRequest` objects in any namespace. The credentials Secret must be in the `certforge-system` namespace.
+
+```yaml
+apiVersion: certforge.io/v1alpha1
+kind: CertForgeClusterIssuer
+metadata:
+  name: certforge
+spec:
+  url: https://app.certgovernance.app
+
+  authSecretRef:
+    name: certforge-credentials   # must be in the certforge-system namespace
+    key: token
+
+  caBundle: <base64-encoded-PEM>
+
+  caBundleSecretRef:
+    name: certforge-ca
+    key: ca.crt
+
+  pollIntervalSeconds: 15
+```
+
+Check cluster issuer status:
+
+```bash
+kubectl get certforgeclusterissuer certforge -o yaml
+```
+
+## Credentials secret
+
+The controller reads the API token from a Kubernetes Secret. Create or rotate it:
+
+```bash
+# Create
+kubectl create secret generic certforge-credentials \
+  --namespace certforge-system \
+  --from-literal=token=<your-api-token>
+
+# Rotate (apply without restart — controller re-reads on next reconcile)
+kubectl create secret generic certforge-credentials \
+  --namespace certforge-system \
+  --from-literal=token=<new-api-token> \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+For `CertForgeIssuer` (namespaced), create the secret in the same namespace as the issuer:
+
+```bash
+kubectl create secret generic certforge-credentials \
+  --namespace default \
+  --from-literal=token=<your-api-token>
+```
+
+## RBAC
+
+The controller's service account is granted the following permissions by the Helm chart:
+
+| Resource | Verbs |
+|----------|-------|
+| `certificaterequests` | get, list, watch, update, patch |
+| `certificaterequests/status` | update, patch |
+| `certforgeissuers`, `certforgeclusterissuers` | get, list, watch |
+| `certforgeissuers/status`, `certforgeclusterissuers/status` | update, patch |
+| `secrets` (in issuer namespaces) | get |
+| `events` | create, patch |
+
+No cluster-wide Secret read access is granted; the controller only reads Secrets in namespaces it needs to serve.
+
+## Metrics
+
+When `metrics.enabled=true`, the controller exposes Prometheus metrics on port 8080 at `/metrics`.
+
+Key metrics:
+
+| Metric | Description |
+|--------|-------------|
+| `certforge_issuer_requests_total` | Total certificate requests, labeled by `status` (issued, denied, failed) |
+| `certforge_issuer_request_duration_seconds` | Histogram of request round-trip time to CertForge |
+| `certforge_issuer_poll_duration_seconds` | Time spent polling for approval |
+| `certforge_issuer_ready` | 1 if the issuer is connected, 0 if not |
+
+Enable the Prometheus Operator `ServiceMonitor`:
+
+```yaml
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+```
+
+## Controller logs
+
+The controller writes structured JSON logs. Set `logLevel: debug` during troubleshooting:
+
+```bash
+kubectl logs -n certforge-system deployment/certforge-issuer-controller-manager -f
+```
+
+Common log entries:
+
+| Message | Meaning |
+|---------|---------|
+| `issuer ready` | Controller connected to CertForge and issuer marked Ready |
+| `submitting CSR` | Sending a certificate request to CertForge |
+| `request approved, retrieving certificate` | CertForge approved the request; fetching the signed cert |
+| `request pending, will retry` | Waiting for manual approval in the CertForge queue |
+| `request denied` | Approver denied the request; `CertificateRequest` marked Denied |
+| `API error` | Network or auth failure — check URL, token, and CA trust |
+
+## Upgrading
+
+```bash
+helm upgrade certforge-issuer oci://ghcr.io/certforge/charts/certforge-issuer \
+  --namespace certforge-system \
+  --reuse-values
+```
+
+The controller performs a rolling update with zero downtime. In-flight requests continue to be polled — they are not lost during an upgrade.
+
+## High availability
+
+Run multiple replicas with leader election enabled:
+
+```yaml
+replicaCount: 2
+leaderElection:
+  enabled: true
+```
+
+Only one replica processes requests at a time; the others stand by. All replicas must be able to reach the CertForge API.
+
+## Uninstall
+
+```bash
+helm uninstall certforge-issuer --namespace certforge-system
+kubectl delete namespace certforge-system
+# Remove CRDs if you no longer need them
+kubectl delete crd certforgeissuers.certforge.io certforgeclusterissuers.certforge.io
+```
+
+Uninstalling does not delete `CertificateRequest` objects or the Kubernetes Secrets containing issued certificates — those remain intact.

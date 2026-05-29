@@ -1,120 +1,67 @@
 ---
 title: "DNS Validation"
-description: "Automate ACME DNS-01 challenges in CertForge using Cloudflare, Route53, and other supported DNS providers — for wildcards and internal domain validation."
+description: "Configure DNS accounts for ACME DNS-01 challenge solving."
 ---
 
-ACME's DNS-01 challenge requires placing a TXT record at `_acme-challenge.yourdomain.com` to prove domain ownership. CertForge handles this automatically for supported DNS providers — no manual steps required.
+ACME's DNS-01 challenge requires placing a TXT record at `_acme-challenge.yourdomain.com` to prove domain ownership. CertForge handles this automatically using DNS accounts configured in the UI — no `config.yaml` changes are needed.
 
 ## Why DNS-01?
 
 | Feature | HTTP-01 | DNS-01 |
 |---|---|---|
-| Wildcard certificates | ❌ | ✅ |
-| Works without open HTTP port | ❌ | ✅ |
-| Works for internal domains | ❌ | ✅ |
-| Fully automated | ✅ | ✅ (with supported provider) |
+| Wildcard certificates | No | Yes |
+| Works without open HTTP port | No | Yes |
+| Works for internal domains | No | Yes |
+| Fully automated | Yes | Yes (with supported provider) |
 
 CertForge uses DNS-01 exclusively. HTTP-01 is not supported.
 
-## Cloudflare
+## Step 1: Create a DNS account
 
-### Create an API token
+Go to **Admin → DNS Accounts → New** and select your provider.
+
+### Cloudflare
 
 1. In Cloudflare → Profile → API Tokens → Create Token
 2. Use the **Edit zone DNS** template
-3. Restrict to the zone(s) CertForge needs to manage
+3. Restrict the token to the zone(s) CertForge needs to manage
 4. Copy the token
 
-### Configure
+In the DNS account form:
 
-```yaml
-dns:
-  solver: cloudflare
-  cloudflare:
-    api_token: ${CLOUDFLARE_API_TOKEN}
-```
+| Field | Value |
+|---|---|
+| Provider | Cloudflare |
+| API Token | Paste your Cloudflare API token |
 
-Set the token as an environment variable — never in the YAML file:
+### RFC 2136 / TSIG (bind, Windows DNS, Infoblox, etc.)
 
-```bash
-# systemd drop-in
-Environment="CLOUDFLARE_API_TOKEN=your-token"
-```
+For any DNS server that supports RFC 2136 dynamic updates with TSIG authentication:
 
-## AWS Route 53
+| Field | Value |
+|---|---|
+| Provider | RFC 2136 |
+| Server | IP or hostname of your DNS server |
+| Zone | The DNS zone to update, e.g. `corp.com.` |
+| TSIG Key Name | The TSIG key name configured on the server |
+| TSIG Key Secret | Base64-encoded TSIG key secret |
+| TSIG Algorithm | `hmac-sha256` (recommended) or `hmac-sha512` |
 
-### IAM policy
+Save the account. CertForge will show a connection status indicator once the account is saved.
 
-Create an IAM policy with these permissions:
+## Step 2: Link the DNS account to a DTP
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "route53:ChangeResourceRecordSets",
-        "route53:ListResourceRecordSets"
-      ],
-      "Resource": "arn:aws:route53:::hostedzone/YOUR_ZONE_ID"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "route53:GetChange",
-      "Resource": "*"
-    }
-  ]
-}
-```
+Each Domain Trust Profile that uses an ACME CA must reference a DNS account to use for challenge solving.
 
-Attach to the IAM role or user CertForge runs as.
+1. Go to **Admin → Domain Trust Profiles**
+2. Edit the profile backed by an ACME CA
+3. Under **DNS Settings**, select the DNS account from the dropdown
+4. Save
 
-### Configure
-
-```yaml
-dns:
-  solver: route53
-  route53:
-    region: us-east-1
-    hosted_zone_id: YOUR_HOSTED_ZONE_ID
-```
-
-If running on EC2 with an instance role, no credentials are needed — the SDK picks them up automatically.
-
-## Manual (any DNS provider)
-
-Use `manual` when your DNS provider isn't natively supported:
-
-```yaml
-dns:
-  solver: manual
-```
-
-When CertForge needs to validate a domain, it logs the required TXT record:
-
-```
-[acme] DNS-01 challenge: add TXT record
-  Name:  _acme-challenge.myservice.corp.com
-  Value: abc123xyz...
-  TTL:   120
-```
-
-Add the record in your DNS provider's control panel, then confirm in the CertForge dashboard (Approvals → [request] → Confirm DNS). CertForge submits the challenge to the ACME CA.
-
-<Note>
-Manual mode works well when combined with the approval workflow — the approver can both review the request and place the DNS record before approving.
-</Note>
-
-## Propagation wait
-
-CertForge waits for the DNS record to propagate before submitting the ACME challenge. The default wait is 60 seconds after the record is placed. If your DNS provider has slow propagation, increase this in `config.yaml`:
-
-```yaml
-dns:
-  propagation_timeout: 120s  # default: 60s
-```
+When CertForge needs to validate a domain for that profile, it uses the linked account's credentials to create and remove the `_acme-challenge` TXT record automatically.
 
 ## Multiple DNS providers
 
-If you use different providers for different zones, configure multiple DNS accounts in **Admin → DNS Accounts**. Each domain trust profile can reference a specific DNS account for challenge solving.
+Different DTPs can reference different DNS accounts. This allows you to use Cloudflare for one zone and RFC 2136 for another without any per-request configuration.
+
+Create one DNS account per provider or credential set, then link each account to the appropriate DTP.

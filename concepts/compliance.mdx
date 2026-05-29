@@ -1,0 +1,82 @@
+---
+title: "Compliance"
+description: "Compliance frameworks, AI risk assessment, and audit trail verification in CertForge."
+---
+
+# Compliance
+
+CertForge includes built-in compliance tooling: framework assignment that enforces policy requirements automatically, an AI engine that scores approval requests for risk, and a hash-chained audit trail that can be cryptographically verified.
+
+## Compliance frameworks
+
+A compliance framework can be assigned to an org or to individual Domain Trust Profiles. When active, the framework enforces its policy requirements without manual configuration of each DTP.
+
+### Supported frameworks
+
+| Framework | Key requirements enforced |
+|---|---|
+| **SOC 2** | Mandatory approval reason, audit trail chain verification enabled |
+| **ISO 27001** | Mandatory approval reason, maximum certificate validity |
+| **PCI-DSS** | Mandatory approval reason, maximum certificate validity, key algorithm requirements |
+| **HIPAA** | Mandatory approval reason, audit trail chain verification enabled |
+
+### Assigning a framework
+
+Go to **Compliance** in the navigation and select one or more frameworks. Framework requirements apply immediately to all new approval decisions in the org.
+
+A framework can also be assigned per DTP from the DTP form. Per-DTP assignment restricts enforcement to certificates issued under that profile.
+
+### What frameworks enforce
+
+When `mandatory_approval_reason` is set by the active framework:
+- Every approval and rejection decision requires the approver to select a predefined reason from the dropdown before submitting
+- If no predefined reasons are configured, a free-text field is required instead
+
+When a maximum validity is set by the framework:
+- Certificate requests for longer validity are capped at the framework's maximum
+- Applies to internal CA certificates only; ACME CAs always cap at 90 days
+
+## AI risk assessment
+
+When the AI engine is enabled by the platform administrator, each incoming approval request is scored automatically before approvers review it.
+
+The AI engine evaluates:
+- The requested domain name pattern (sensitivity, public vs. internal)
+- The requested environment (production carries higher weight)
+- The requesting entity's history (prior approvals, rejections, patterns)
+- The CA type and DTP settings
+
+The result is a risk level — **low**, **medium**, or **high** — along with a plain-text explanation of the factors that drove the score. Both the score and the reasoning are displayed on the approval request and stored permanently in the audit trail as an `approval.ai_risk` event.
+
+The AI score is advisory. Approvers can approve or reject regardless of the score.
+
+To enable AI risk assessment, contact your platform administrator. Enabling requires an AI provider API key to be configured at the platform level.
+
+## Audit trail
+
+Every action in CertForge — certificate issuances, approval decisions, admin changes, logins — is written to an append-only audit log. Each record includes:
+
+| Field | Description |
+|---|---|
+| `event_id` | Unique identifier for the event |
+| `ts` | UTC timestamp |
+| `type` | Event type, e.g. `certificate.issued`, `approval.decision` |
+| `actor` | Who performed the action (user, API, system) |
+| `resource_type` | The object affected (certificate, DTP, user, etc.) |
+| `resource_id` | Identifier of the affected object |
+| `outcome` | `success` or `error` |
+| `details` | Event-specific payload (domains, CA, reason, etc.) |
+
+### Hash chain integrity
+
+The audit trail is hash-chained: each record includes the SHA-256 hash of the previous record. This makes the trail tamper-evident — modifying any past record breaks the chain.
+
+CertForge verifies the chain on every startup. If tampering is detected, CertForge will not start until the issue is investigated.
+
+### Manual verification
+
+You can verify the audit chain on demand at **Compliance → Audit Chain**. This page shows the current chain status, the total number of records, and the hash of the most recent record. If the chain is intact, a verification badge is displayed with a timestamp.
+
+### Compliance evidence view
+
+The **Compliance → Trail** tab shows a filtered view of the audit log containing only certificate and approval events. This view is designed for export and presentation to auditors. The **Justification** column shows the approval reason recorded at decision time.
