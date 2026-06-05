@@ -32,9 +32,11 @@ CertForge is the governance layer that sits in front of your CAs — public ACME
 - **Approval workflows** — human-in-the-loop approval with full audit trail; SOC 2 and ISO 27001 compatible
 - **ACME endpoint** — drop-in replacement for Let's Encrypt clients; works with certbot, acme.sh, and any RFC 8555 client
 - **Internal CA** — built-in CA for internal domains; no external CA required for private PKI
+- **Services** — group hostnames and cert configurations under named services with owners; enables service-level coverage tracking and targeted expiry notifications to the right people
 - **Kubernetes / cert-manager** — native cert-manager external issuer (`certforge-issuer`) routes cluster certificate requests through CertForge policy; existing cert-manager `Certificate` manifests work unchanged, policy is enforced transparently
 - **REST API** — full programmatic access for CI/CD pipelines, custom tooling, and integrations; token-authenticated
-- **Alerts** — configurable rules for expiring certs and stale approval queues, with webhook/Slack/Teams/Webex notifications
+- **Alerts** — configurable rules for expiring certs, stale approval queues, and failing issuance; service owners receive targeted notifications listing only their service's certs
+- **Reports** — built-in reports for certificate inventory, expiring certs, service coverage, and approval activity; subscribe to scheduled email delivery from your profile
 - **Notifications** — org-level notification channels: Webhook, Slack, Microsoft Teams, Webex; used for alert delivery, approval requests, and approval outcomes
 - **SSO / OIDC** — integrate with any OIDC provider (Keycloak, Okta, Azure AD, etc.) for single sign-on
 - **Compliance frameworks** — assign SOC 2, ISO 27001, PCI-DSS, or HIPAA to enforce policy requirements and generate audit evidence

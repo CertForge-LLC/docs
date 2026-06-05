@@ -11,6 +11,7 @@ CertForge alerts notify your team when conditions that need attention occur — 
 |---|---|
 | `cert_expiring` | One or more certificates expire within N days |
 | `approval_pending` | A certificate request has been waiting for approval longer than N hours |
+| `cert_issuance_failing` | Cert issuance has been failing continuously for > N minutes |
 
 ## Configuring rules
 
@@ -67,6 +68,14 @@ Use the **Send Test** button after configuring a channel to confirm delivery bef
 Users can subscribe to specific rules to receive personal notifications. Go to **Profile → Alert Subscriptions** and check the rules you want to follow.
 
 Requires an email address on your account and SMTP configured by your admin.
+
+## Service owner notifications
+
+When a `cert_expiring` rule fires, CertForge also sends a targeted email to each service's owners listing only the certificates belonging to that service. Unlike org-wide alert channels, this email is scoped to the recipient's services — owners see only what they are responsible for.
+
+This is opt-in: go to **Profile → Alert Subscriptions** and check **Service cert expiry (notify me as service owner)**.
+
+For more on services and ownership, see [Services](/concepts/services).
 
 ## Alert dashboard
 

@@ -1,0 +1,86 @@
+---
+title: "Services"
+description: "Group hostnames and certificate configurations under named services with owners."
+---
+
+A Service is a named business entity in CertForge that groups related hostnames into certificate configurations and assigns ownership to specific people. Services tie certificates to the applications or teams responsible for them — giving you coverage visibility, targeted alert routing, and a clear answer to "who owns this cert?" when something goes wrong.
+
+## What is a Service?
+
+Without services, a certificate inventory is a flat list of hostnames and expiry dates. With services, every certificate belongs to a context: the application it protects, the environment it runs in, and the people accountable for it.
+
+Services address two recurring problems:
+
+- **Coverage gaps** — knowing that `api.example.com` has a certificate is different from knowing that the Payments API has full certificate coverage across all its hostnames. Services make that distinction explicit.
+- **Alert routing** — sending every expiry alert to a shared operations inbox creates noise. Services let CertForge send each team only the alerts relevant to their own certificates.
+
+## Creating a service
+
+Services can be created in two places:
+
+- **Services → Add Service** — the dedicated management page for creating and editing services independently of any certificate workflow.
+- **Certificate wizard (inline)** — when creating a new certificate, you can create or select a service in the same flow without leaving the wizard.
+
+## Service fields
+
+| Field | Description |
+|---|---|
+| **Name** | Human-readable name for the service (e.g. "Payments API", "Customer Portal") |
+| **Type** | Category of service: `web`, `api`, `internal`, `microservice`, `infrastructure`, or `other` |
+| **Environment** | Deployment environment: `production`, `staging`, `development`, `testing`, or `other` |
+| **Hostnames / cert groups** | One or more cert groups, each containing a set of hostnames |
+| **Owners** | One or more email addresses identifying the people responsible for this service |
+
+## Cert groups
+
+A single service often needs more than one certificate — for example, when a wildcard doesn't cover all required SANs, or when different hostnames must use different CAs or key types.
+
+Each cert group within a service contains a set of hostnames that will be covered by a single certificate. CertForge tracks coverage at the cert group level: a group is covered when a valid, managed certificate exists for those hostnames, and uncovered when it does not.
+
+One service can have multiple cert groups. This supports multi-cert configurations without needing to split conceptually related hostnames across separate services.
+
+## Coverage status
+
+The Services page shows a coverage status for each service, computed across all its cert groups.
+
+| Status | Meaning |
+|---|---|
+| **Full** | Every cert group in the service has a valid, managed certificate |
+| **Partial** | At least one cert group is covered, but one or more are not |
+| **None** | No cert group has coverage, but the service has cert groups defined |
+| **No certs** | The service has no cert groups configured yet |
+
+## Service owner notifications
+
+When a `cert_expiring` alert rule fires, CertForge sends a targeted email to each service's owners listing only the certificates belonging to that service. This is separate from the org-wide alert channel — owners receive a focused view of what they are responsible for, not a list of every expiring cert in the organization.
+
+This notification is opt-in. To receive it, go to **Profile → Alert Subscriptions** and check **Service cert expiry (notify me as service owner)**. Owners who do not opt in will not receive the targeted email, but org-wide alert channels will still fire as configured.
+
+<Note>
+Service owner notifications require an email address on your account and SMTP configured by your admin. See [Email Setup](/guides/email-setup) for configuration details.
+</Note>
+
+## Reports
+
+Two reports are available specifically for services. Both are accessible at the **Reports** page and can be subscribed to as scheduled email deliveries from **Profile → Report Subscriptions**.
+
+### Service Coverage
+
+Lists every service in the organization with:
+
+- Hostname count
+- Cert group count
+- Owner emails
+- Coverage status (Full / Partial / None / No certs)
+
+Use this report to identify services with gaps before those gaps cause outages. With 47-day certificate lifetimes, a cert group that falls out of coverage will expire within weeks.
+
+### Service Cert Expiry
+
+Shows service-associated certificates expiring within a configurable number of days, with the service name and owner emails alongside each certificate. This report makes it straightforward to hand off expiry work to the right team — or confirm that automated renewal is tracking correctly.
+
+### Enriched standard reports
+
+The existing **Certificate Inventory** and **Expiring Certificates** reports now include **Service** and **Owners** columns when services are configured. This provides service context across all certificate reporting without requiring separate queries.
+
+For more on reports and scheduled delivery, see [Reports](/concepts/reports).
