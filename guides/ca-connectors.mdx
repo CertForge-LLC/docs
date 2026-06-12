@@ -1,0 +1,72 @@
+---
+title: "CA Connectors"
+description: "Import your existing certificate inventory from DigiCert, Sectigo, or any internal CA."
+---
+
+## What are CA Connectors?
+
+CA Connectors are lightweight binaries that run alongside your existing Certificate Authorities and import your certificate inventory into CertForge. Once connected, every cert your CA has ever issued appears in the CertForge Discovery page and Dashboard — alongside certs issued directly by CertForge.
+
+This gives you a single pane of glass across your entire certificate estate, regardless of which CAs your organization uses.
+
+## Supported CA Types
+
+| CA | Method |
+|----|--------|
+| DigiCert | REST API (managed connector) |
+| Sectigo | REST API (managed connector) |
+| Internal / custom CA | Connector binary deployed alongside the CA |
+
+For DigiCert and Sectigo, CertForge provides a managed connector that connects directly via the CA's public API. No binary deployment is required.
+
+## Setting Up a Connector
+
+### DigiCert or Sectigo (Managed)
+
+1. Go to **Admin → CA Connectors**
+2. Click **New Connector**
+3. Choose your CA provider (DigiCert or Sectigo)
+4. Enter your API credentials (API key for DigiCert; username + password for Sectigo)
+5. Click **Test Connection** to verify connectivity
+6. Click **Save** — CertForge immediately begins importing your certificate inventory
+
+The initial import may take a few minutes depending on how many certs your CA has. Subsequent syncs run automatically on a scheduled interval.
+
+### Internal CA (Connector Binary)
+
+For internal or custom CAs, deploy the CertForge connector binary alongside your CA infrastructure:
+
+1. Go to **Admin → CA Connectors**
+2. Click **New Connector** → **Internal CA**
+3. Download the connector binary for your platform (Linux amd64 or arm64, macOS)
+4. Deploy the binary to the host running your CA
+5. Configure the connector with your CA's endpoint and credentials
+6. Start the connector — it registers with CertForge and begins streaming cert data
+
+The connector communicates outbound to CertForge over HTTPS. No inbound firewall rules are required on the CA host.
+
+## What Gets Imported
+
+For each cert the connector discovers, CertForge records:
+
+- Subject and Subject Alternative Names (SANs)
+- Issuer chain
+- Validity period (notBefore / notAfter)
+- Serial number
+- Extended Key Usage
+
+Connector-imported certs are marked with source `ca_connector` and appear in:
+
+- **Discovery page** — filterable by source, governance status, expiry
+- **Dashboard → CA Inventory KPI** — count of active connector-imported certs
+- **Policy mismatch detection** — evaluated against matching Domain Trust Profiles
+
+## Governance After Import
+
+Connector-imported certs start with `governance_status = untracked`. Your team can:
+
+- **Track** — acknowledge the cert; CertForge monitors it for expiry and includes it in compliance reports
+- **Dismiss** — mark as a known false positive; excluded from open issues
+- Leave as untracked; it contributes to the Ungoverned KPI on the Dashboard
+
+See [Certificate Discovery](/concepts/discovery) for the full governance workflow.

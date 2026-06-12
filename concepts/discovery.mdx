@@ -1,0 +1,67 @@
+---
+title: "Certificate Discovery"
+description: "Automatically surface every TLS certificate in your environment — including ones you didn't issue."
+---
+
+## What is Discovery?
+
+Certificate Discovery scans your environment continuously and builds a complete inventory of every TLS certificate present — regardless of which CA issued it, whether your team knows about it, or whether it was provisioned through CertForge at all.
+
+Discovery sources run simultaneously:
+
+- **Certificate Transparency (CT) logs** — public logs that capture nearly every publicly-trusted TLS cert issued. CertForge watches CT logs for your domains and surfaces any cert as soon as it appears.
+- **Active TLS scanning** — CertForge connects to your registered hostnames and retrieves the certificate the server is actually serving. This catches certs that may not be in CT logs, including internally-issued certs.
+- **CA connector imports** — certs pulled directly from external CA APIs (DigiCert, Sectigo, internal CAs) via the [CA Connector](/guides/ca-connectors) framework.
+
+## Governance Status
+
+Every discovered certificate gets one of three governance statuses:
+
+| Status | Meaning |
+|--------|---------|
+| **Tracked** | Your team has explicitly reviewed and acknowledged this cert. CertForge monitors it for expiry and includes it in compliance reporting. |
+| **Untracked** | Discovered but not yet reviewed. Valid cert, but outside your governance perimeter. |
+| **Ungoverned** | No matching Domain Trust Profile exists for this cert's domain. It falls entirely outside your policy framework. |
+
+Clicking **Track** on a discovered cert moves it to Tracked status. Clicking **Dismiss** marks it as a known false positive (excluded from reports).
+
+## Policy Mismatch Detection
+
+When a discovered cert matches a Domain Trust Profile by domain pattern, CertForge evaluates it against that profile's policy and flags any violations:
+
+- **Wildcard not allowed** — cert contains a wildcard SAN but the DTP prohibits wildcards
+- **Validity too long** — cert's validity period exceeds the DTP's configured maximum
+- **EKU mismatch** — cert contains an Extended Key Usage not permitted by the DTP
+
+Violations appear as a red badge on the Discovery page. This gives your security team immediate visibility into out-of-policy certs already in production, without waiting for a manual audit.
+
+## Discovery Page
+
+Navigate to **Discovery** in the sidebar. The page shows all discovered certs with filters for:
+
+- **Source**: CT log / TLS scan / CA connector
+- **Governance status**: Tracked / Untracked / Ungoverned
+- **Expiry**: Active / Expiring ≤30 days / Expired
+- **Policy**: Compliant / Policy mismatch
+
+Each cert row shows the issuer, SANs, expiry date, discovery source, and any policy violations.
+
+## Dashboard KPIs
+
+The Dashboard shows discovery metrics at a glance:
+
+- **CA Inventory** — count of certs imported via CA connectors
+- **Tracked** — count of explicitly governed discovered certs
+- **Ungoverned** — count of certs with no matching Trust Profile
+
+See [Dashboard](/concepts/dashboard) for the full KPI reference.
+
+## Configuring Discovery Targets
+
+Discovery runs automatically against domains registered in your Domain Trust Profiles. To add scan targets:
+
+1. Go to **Admin → Domain Trust Profiles**
+2. Open a profile and ensure domains are registered
+3. CertForge begins scanning those domains on the next discovery cycle
+
+For CA connector-based discovery, see [CA Connectors](/guides/ca-connectors).

@@ -90,14 +90,7 @@ storage:
 # database:
 #   url: postgres://certforge:password@localhost:5432/certforge?sslmode=require
 
-# ACME providers (add your own or use the built-in internal CA)
-acme:
-  mode: production
-  providers:
-    letsencrypt:
-      directory_url: https://acme-v02.api.letsencrypt.org/directory
-    zerossl:
-      directory_url: https://acme.zerossl.com/v2/DV90
+# ACME CA providers are configured via the admin dashboard (Admin → Certificate Authorities).
 
 # TLS for the dashboard (optional — use a reverse proxy instead if preferred)
 # server_tls:
@@ -167,7 +160,7 @@ systemctl is-active certforge
 curl -sk https://localhost:8080/api/license | jq .
 
 # Check ACME directory is reachable
-curl -sk https://localhost:8443/acme/v2/directory | jq .meta
+curl -sk https://localhost:8443/acme/directory | jq .meta
 ```
 
 ---

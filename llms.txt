@@ -1,10 +1,10 @@
 # CertForge
 
-> Certificate governance platform for engineering teams. Approval workflows, audit trails, and lifecycle management for TLS certificates — cloud or self-hosted.
+> Certificate governance platform for security and PKI teams. Discovery, policy enforcement, approval workflows, audit trails, and lifecycle management for TLS certificates — cloud or self-hosted.
 
 ## What it is
 
-CertForge sits between your devices and your certificate authorities and enforces policy before any certificate is issued. Every request is matched to a Domain Trust Profile (DTP) that defines which CA to use, whether approval is required, who can request, and which environments are permitted.
+CertForge is a certificate governance platform. It discovers every certificate in your environment, evaluates them against policy, enforces approval workflows before new certs are issued, and maintains a cryptographic audit trail of every decision.
 
 ## Deployment
 
@@ -13,20 +13,25 @@ CertForge sits between your devices and your certificate authorities and enforce
 
 ## Core concepts
 
-- **Certificate Authorities (CAs)**: Internal (root/intermediate, private PKI) or ACME (Let's Encrypt, ZeroSSL). CA private keys encrypted AES-256-GCM at rest.
-- **Domain Trust Profiles (DTPs)**: Policy objects — which domains, which CA, approval required or not, environment restrictions. Every cert request must match a DTP.
-- **Approval workflow**: Optional per-DTP. Requests queue for human review. Approvers see requester, domains, justification. Audit chain is hash-chained and tamper-evident.
-- **Devices**: Any endpoint (server, VM, container, IoT device) that holds a CertForge-issued certificate.
+- **Certificate Discovery**: CT log scanning, active TLS scanning, CA connector imports. Each discovered cert gets a `governance_status` (tracked/untracked/ungoverned) and is evaluated against the matching DTP policy for violations (wildcard, max validity, EKU).
+- **CA Connectors**: Lightweight connector binaries that import certificate inventory from external CAs (DigiCert, Sectigo, internal CAs). Connector certs appear in the CA Inventory KPI.
+- **Domain Trust Profiles (DTPs)**: Policy objects — which domains, which CA, approval required, allowed EKU, wildcard toggle, max validity days, environment restrictions. Every cert request must match a DTP.
+- **Approval workflow**: Optional per-DTP. Requests queue for human review. Approvers see requester, domains, justification. Configurable mandatory approval reasons. Audit chain is hash-chained and tamper-evident.
+- **Services**: Named services with owner email lists, grouped hostnames, and cert-to-service mapping. Enables service-level expiry alerts sent directly to service owners.
+- **Dashboard KPIs**: CertForge Managed (active domain certs issued by CertForge), CA Inventory (certs imported via CA connectors), Tracked (discovered certs explicitly governed), Expiring ≤30 Days (across all sources), Ungoverned (not under any governance tracking).
 
 ## Key features
 
+- Certificate Discovery: CT logs, TLS scanning, CA connectors; governance_status per cert; policy mismatch badges
 - Internal CA management with encrypted key storage
 - ACME (Let's Encrypt / ZeroSSL) with DNS-01 challenge solving (Cloudflare, Route53, manual)
-- Approval workflow with email notification and escalation
-- Compliance audit trail (tamper-evident hash chain on approval ledger)
+- cert-manager external issuer (`certforge-issuer`) — Kubernetes integration, existing Certificate manifests work unchanged
+- Approval workflow with email notification, mandatory approval reasons, and escalation
+- Compliance audit trail (tamper-evident hash chain; filterable by org, event type, actor, date; CSV/JSON export)
 - Alerts: cert_expiring and approval_pending rule types, email/webhook/Slack/PagerDuty delivery
-- Reports: Certificate Inventory, Expiring Certificates, Approval Activity — dashboard + CSV + scheduled email
+- Reports: Certificate Inventory, Expiring Certificates, Service Cert Expiry (by owner), Approval Activity — dashboard + CSV + scheduled email
 - Multi-tenant: organizations table, org_id FK on all data, role-based access control
+- Org lifecycle management: free-tier inactivity detection, reminder emails, deletion with audit log events
 - OIDC / SSO: Azure AD and standard OIDC, group-to-role mapping, per-org config
 - mTLS client auth: devices authenticate with client certificates, not API keys
 - HA / clustering: leader election via PostgreSQL advisory locks, node heartbeats dashboard
@@ -42,16 +47,16 @@ CertForge sits between your devices and your certificate authorities and enforce
 
 - Go binary (single executable)
 - PostgreSQL (production) or SQLite (self-hosted zero-config)
-- DB-backed sessions, audit events, approval records, certificates
+- DB-backed sessions, audit events, approval records, certificates, discovery certs
 - SMTP for email; webhook/Slack/PagerDuty for alerts
+- ACME directory at `/acme/directory` (RFC 8555 compliant)
 
 ## Docs
 
 - Full documentation: https://docs.certforge.xyz
-- Getting started (cloud): https://docs.certforge.xyz/getting-started/cloud-quickstart
-- Self-hosted install: https://docs.certforge.xyz/getting-started/self-hosted-install
+- Self-hosted install: https://docs.certforge.xyz/self-hosted/installation
 - Configuration reference: https://docs.certforge.xyz/self-hosted/configuration
-- API overview: https://docs.certforge.xyz/api/overview
+- API overview: https://docs.certforge.xyz/reference/api
 
 ## Contact
 

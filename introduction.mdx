@@ -18,7 +18,7 @@ CertForge is the governance layer that sits in front of your CAs — public ACME
 ## Two deployment options
 
 <CardGroup cols={2}>
-  <Card title="Cloud (Hosted)" icon="cloud" href="https://app.certforge.xyz/signup">
+  <Card title="Cloud (Hosted)" icon="cloud" href="https://app.certgovernance.app/signup">
     Managed by CertForge. No infrastructure to run. Free tier available. Ideal for teams that want to get started immediately.
   </Card>
   <Card title="Self-Hosted" icon="server" href="/self-hosted/quick-start">
@@ -28,22 +28,25 @@ CertForge is the governance layer that sits in front of your CAs — public ACME
 
 ## Key features
 
-- **Domain Trust Profiles** — policy objects that define which domains can get certs, which CA issues them, who must approve, and what key requirements apply
-- **Approval workflows** — human-in-the-loop approval with full audit trail; SOC 2 and ISO 27001 compatible
+- **Certificate Discovery** — automatically surfaces every certificate in your environment via CT log scanning, active TLS scanning, and CA connector imports; each cert receives a governance status (tracked, untracked, or ungoverned) and is evaluated against your policy for violations
+- **CA Connectors** — import your entire existing certificate inventory from external CAs (DigiCert, Sectigo, internal CAs) via lightweight connector binaries; discovered certs appear in the dashboard alongside CertForge-issued certs
+- **Domain Trust Profiles** — policy objects that define which domains can get certs, which CA issues them, who must approve, allowed EKU, wildcard rules, max validity days, and key requirements
+- **Approval workflows** — human-in-the-loop approval with full audit trail; SOC 2 and ISO 27001 compatible; configurable mandatory approval reasons
 - **ACME endpoint** — drop-in replacement for Let's Encrypt clients; works with certbot, acme.sh, and any RFC 8555 client
 - **Internal CA** — built-in CA for internal domains; no external CA required for private PKI
 - **Services** — group hostnames and cert configurations under named services with owners; enables service-level coverage tracking and targeted expiry notifications to the right people
 - **Kubernetes / cert-manager** — native cert-manager external issuer (`certforge-issuer`) routes cluster certificate requests through CertForge policy; existing cert-manager `Certificate` manifests work unchanged, policy is enforced transparently
+- **Dashboard** — real-time KPIs across your entire certificate estate: CertForge Managed, CA Inventory, Tracked, Expiring ≤30 Days, and Ungoverned; with pending approval queue and recent activity feed
 - **REST API** — full programmatic access for CI/CD pipelines, custom tooling, and integrations; token-authenticated
 - **Alerts** — configurable rules for expiring certs, stale approval queues, and failing issuance; service owners receive targeted notifications listing only their service's certs
-- **Reports** — built-in reports for certificate inventory, expiring certs, service coverage, and approval activity; subscribe to scheduled email delivery from your profile
+- **Reports** — built-in reports for certificate inventory, expiring certs, service cert expiry (by service owner), service coverage, and approval activity; subscribe to scheduled email delivery from your profile
 - **Notifications** — org-level notification channels: Webhook, Slack, Microsoft Teams, Webex; used for alert delivery, approval requests, and approval outcomes
 - **SSO / OIDC** — integrate with any OIDC provider (Keycloak, Okta, Azure AD, etc.) for single sign-on
 - **Compliance frameworks** — assign SOC 2, ISO 27001, PCI-DSS, or HIPAA to enforce policy requirements and generate audit evidence
 - **AI risk assessment** — automatic risk scoring on approval requests with reasoning, stored in the audit trail
 - **DNS account management** — configure DNS provider credentials in the UI (Cloudflare, RFC 2136); linked per Domain Trust Profile for automated ACME DNS-01
 - **SIEM integration** — forward all audit events to your SIEM via HTTPS webhook or UDP syslog in JSON or CEF format (Enterprise tier)
-- **Audit log** — immutable hash-chained record of every certificate, approval, and admin action; verifiable at Compliance → Audit Chain
+- **Audit log** — immutable hash-chained record of every certificate, approval, and admin action; filterable by org, event type, actor, and date; exportable as CSV or JSON
 - **Tamper-evident audit chain** — every approval decision is cryptographically linked in a hash chain: each record's SHA-256 hash covers the record content plus the previous record's hash. This proves to auditors that no certificate was issued without authorization and that the log has not been altered. Chain integrity is verifiable on demand from the UI.
 
 ## Trust & security

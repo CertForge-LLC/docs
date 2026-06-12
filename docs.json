@@ -74,7 +74,10 @@
         "group": "Core Concepts",
         "icon": "book-open",
         "pages": [
+          "concepts/dashboard",
+          "concepts/discovery",
           "concepts/domain-trust-profiles",
+          "concepts/issuance-profiles",
           "concepts/certificate-lifecycle",
           "concepts/approvals",
           "concepts/services",
@@ -89,6 +92,7 @@
         "icon": "map",
         "pages": [
           "guides/acme-setup",
+          "guides/ca-connectors",
           "guides/cert-manager",
           "guides/certforge-issuer",
           "guides/internal-ca",

@@ -1,0 +1,74 @@
+---
+title: "Issuance Profiles"
+description: "Separate CA selection from governance policy so each can be managed independently."
+---
+
+## What are Issuance Profiles?
+
+An Issuance Profile is a named configuration that specifies **which CA to use** when issuing a certificate. It is assigned to one or more Domain Trust Profiles (DTPs).
+
+This separation exists so that:
+- The CA connection and product type are configured once and reused across many DTPs
+- DTPs can focus on governance policy (who can request, approval rules, domain scope) without duplicating CA configuration
+- A DTP with no Issuance Profile is **governance-only** — it tracks, monitors, and alerts on certificates but never issues them
+
+## The relationship between DTPs and Issuance Profiles
+
+```
+Domain Trust Profile (DTP)        Issuance Profile
+─────────────────────────────────  ─────────────────────────
+• Which domains are covered        • Which CA to use
+• Who must approve requests        • CA product / profile
+• Wildcard / EKU / validity rules  • Named, reusable
+• Alert and escalation config
+      │
+      └── assigned IssuanceProfileID ──► Issuance Profile
+```
+
+A single Issuance Profile can be assigned to multiple DTPs. For example, you might have one Issuance Profile for your DigiCert OV account and assign it to five different domain-specific DTPs.
+
+## Governance-only DTPs
+
+A DTP with no Issuance Profile assigned will:
+
+- Accept discovered certs into its governance scope
+- Evaluate those certs against its policy rules (wildcard, EKU, validity)
+- Fire expiry alerts for tracked certs
+- Track certs in the dashboard "Tracked" and "Ungoverned" KPIs
+
+But it will reject any active certificate request with "no issuance profile configured."
+
+This is intentional — you may want to govern and monitor a set of domains without allowing CertForge to issue new certs for them (for example, domains managed by an external team's CA that you're monitoring for policy compliance).
+
+## Setting up an Issuance Profile
+
+1. Go to **Admin → Issuance Profiles**
+2. Click **New Profile**
+3. Enter:
+   - **ID** — a slug used to reference this profile (e.g. `digicert-ov`, `internal-prod`)
+   - **Name** — human-readable display name
+   - **CA** — select the Certificate Authority to use for issuance
+   - **Description** — optional notes
+4. Click **Create**
+
+## Assigning an Issuance Profile to a DTP
+
+1. Go to **Admin → Domain Trust Profiles**
+2. Edit the DTP
+3. In the **Issuance Profile** section, select one or more profiles from the list
+4. Optionally set a **Default Issuance Profile** — used when the requestor doesn't specify one
+5. Click **Update Profile**
+
+If multiple profiles are assigned to a DTP, requestors can choose which to use when submitting a certificate request.
+
+## Common patterns
+
+**One CA, many DTPs**
+Create one Issuance Profile for your internal CA. Assign it to all internal-domain DTPs. Change the CA once if your infrastructure changes, without touching each DTP.
+
+**Mixed CAs by environment**
+- `internal-ca-dev` Issuance Profile → dev and staging DTPs
+- `digicert-ov-prod` Issuance Profile → production DTPs
+
+**Governance-only for external teams**
+Assign no Issuance Profile to a DTP covering an externally-managed domain. CertForge tracks and alerts without being able to issue certs for that domain.

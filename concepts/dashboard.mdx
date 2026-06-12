@@ -1,0 +1,59 @@
+---
+title: "Dashboard"
+description: "Real-time visibility across your entire certificate estate."
+---
+
+## Overview
+
+The CertForge Dashboard is the first screen you see after logging in. It consolidates your entire certificate estate into a single view: KPI cards for the metrics that matter, an action items panel for things that need attention, and tables showing pending approvals and recent activity.
+
+## Certificate Estate KPIs
+
+The **Certificate Estate** section shows five cards:
+
+| KPI | What it counts |
+|-----|---------------|
+| **CertForge Managed** | Active (non-expired) domain certificates issued by CertForge, deduplicated by domain name |
+| **CA Inventory** | Certificates imported from external CAs via CA connectors |
+| **Tracked** | Discovered certificates your team has explicitly acknowledged and placed under governance |
+| **Expiring ≤30 Days** | Certificates expiring within the next 30 days, across all sources (CertForge-issued + connector-imported) |
+| **Ungoverned** | Certificates discovered via CT logs or TLS scanning that have no matching Trust Profile |
+
+Each card links to the relevant filtered view. The **Expiring** card turns amber and the **Ungoverned** card turns amber when their values are non-zero.
+
+### How "CertForge Managed" is counted
+
+This count deduplications by domain name, matching how the **All Certificates** page counts active certs. A single cert covering two SANs (e.g. `voice1.example.com` and `voice2.example.com`) counts as two managed domains. If two certs cover the same domain, only the later-issued one counts. Expired and client-auth certs are excluded.
+
+## Action Items
+
+The **Action Required** panel appears when any of the following are non-zero:
+
+- **Pending approvals** — certificate requests waiting for a human reviewer
+- **Pending issuance** — approved requests waiting for ACME issuance to complete
+- **Unacknowledged alerts** — firing alert rules not yet acknowledged
+- **Policy violations today** — certificate requests rejected for policy reasons since midnight
+
+Each item is a clickable link to the relevant page. If nothing needs attention, the panel shows a green "Nothing needs your attention right now" confirmation.
+
+## Service Health Table
+
+If you have [Services](/concepts/services) configured, a **Service Health** table replaces the Trust Profile Coverage table. It shows each service, its primary hostname, current cert status, and owners — with a **Request Cert** button for services with no valid cert.
+
+If no services are configured, the **Trust Profile Coverage** table shows each DTP, its cert count, expiring count, and last-issued date.
+
+## Pending Approvals Table
+
+Shows all open approval requests you can act on. For each request you can:
+
+- Enter an optional decision note
+- Select a pre-configured approval reason (if the DTP requires one)
+- **Approve** or **Reject** directly from the dashboard without navigating to the Approvals page
+
+## Recent Activity Feed
+
+Shows the last 10 certificate-related audit events (issuances, rejections, renewals) with time, event type badge, and outcome. Click **Full Audit Log →** to go to the filterable audit log.
+
+## DNS Challenges (when active)
+
+If a manual DNS challenge is pending for ACME DNS-01 validation, a yellow banner appears at the top of the dashboard with the TXT record details and a **Confirm DNS Ready** button. You have 60 minutes from when the challenge was created to complete validation.

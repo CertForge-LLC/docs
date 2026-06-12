@@ -92,8 +92,8 @@ On first run you will be prompted to create the initial superuser account. This 
 
 ## Step 7 — Create your first Domain Trust Profile
 
-1. In the dashboard, go to **Trust Policies**
-2. Click **New Profile**
+1. In the dashboard, go to **Admin → Domain Trust Profiles**
+2. Click **New**
 3. Set the domain(s) you want to issue certificates for (e.g. `*.internal.example.com`)
 4. Choose your CA: **Internal CA** for private domains, or configure an ACME provider for public domains
 5. Set approval policy: **Auto-approve** for development, **Require approval** for production
@@ -107,7 +107,7 @@ Point any ACME client at your CertForge instance:
 ```bash
 # certbot example
 certbot certonly \
-  --server http://localhost:8443/acme/v2/directory \
+  --server http://localhost:8443/acme/directory \
   --standalone \
   -d your.domain.internal
 ```
@@ -115,7 +115,7 @@ certbot certonly \
 Or use acme.sh:
 ```bash
 acme.sh --issue \
-  --server http://localhost:8443/acme/v2/directory \
+  --server http://localhost:8443/acme/directory \
   -d your.domain.internal \
   --standalone
 ```
